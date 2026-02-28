@@ -38,7 +38,7 @@ const Bill = () => {
         fetchOrders();
     }, []);
 
-    const subtotal = orders.reduce((acc, item) => acc + (parseFloat(item.finalPrice ?? item.price ?? 0) * item.quantity), 0);
+    const subtotal = orders.reduce((acc, item) => acc + (parseFloat(item.finalPrice ?? item.price ?? 0) * (item.quantity ?? item.quantidade ?? 1)), 0);
     const waiterTip = subtotal * (waiterTipPercent / 100);
     const appTax = subtotal * 0.01;
     const total = subtotal + waiterTip + appTax;
@@ -60,7 +60,7 @@ const Bill = () => {
                     items: orders.map(o => ({
                         name: o.name + (o.selectedAddons?.length ? ` (+ ${o.selectedAddons.map(a => a.name).join(', ')})` : ''),
                         price: parseFloat(o.finalPrice ?? o.price ?? 0),
-                        quantity: o.quantity
+                        quantity: o.quantity ?? o.quantidade ?? 1
                     })),
                     tip: waiterTip,
                     appTax: appTax
@@ -102,7 +102,7 @@ const Bill = () => {
                         <React.Fragment key={index}>
                             <ListItem sx={{ px: 0, py: 1.5, alignItems: 'flex-start' }}>
                                 <ListItemText
-                                    primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity}x {item.name}</Typography>}
+                                    primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity ?? item.quantidade ?? 1}x {item.name}</Typography>}
                                     secondary={
                                         <Box component="span" sx={{ display: 'block' }}>
                                             {item.selectedAddons && item.selectedAddons.length > 0 && (
@@ -118,7 +118,7 @@ const Bill = () => {
                                         </Box>
                                     }
                                 />
-                                <Typography sx={{ fontWeight: 800 }}>R$ {(parseFloat(item.finalPrice ?? item.price ?? 0) * item.quantity).toFixed(2)}</Typography>
+                                <Typography sx={{ fontWeight: 800 }}>R$ {(parseFloat(item.finalPrice ?? item.price ?? 0) * (item.quantity ?? item.quantidade ?? 1)).toFixed(2)}</Typography>
                             </ListItem>
                         </React.Fragment>
                     ))}
