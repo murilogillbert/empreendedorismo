@@ -1,0 +1,24 @@
+:root {
+  --mantine-color-orange-filled: #FF8C00;
+  --mantine-color-orange-filled-hover: #E67E00;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #FFFFFF;
+}
+
+/* Custom horizontal scroll behavior if needed */
+.category-container::-webkit-scrollbar {
+  display: none;
+}
+
+.category-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
