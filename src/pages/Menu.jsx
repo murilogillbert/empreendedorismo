@@ -72,9 +72,14 @@ const Menu = () => {
 
     return (
         <Box sx={{ pb: 8 }}>
-            <Typography variant="h5" sx={{ fontWeight: 900, mb: 2 }}>
-                Nosso Cardápio
-            </Typography>
+            <Box sx={{ mb: 3 }}>
+                <Typography variant="h5" sx={{ fontWeight: 900, color: '#1A1A1A' }}>
+                    Nosso Cardápio
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4 }}>
+                    Escolha seus pratos favoritos 🍽️
+                </Typography>
+            </Box>
 
             <CategoryBar
                 activeCategory={activeCategory}
@@ -82,31 +87,38 @@ const Menu = () => {
             />
 
             <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mb: 1, display: 'block' }}>
-                    REMOVER ITENS COM ALÉRGENOS:
+                <Typography variant="caption" sx={{ fontWeight: 700, mb: 1, display: 'block', color: '#999', letterSpacing: 0.8, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                    🚫 Remover alérgenos
                 </Typography>
-                <Box disablebar="true" sx={{
+                <Box sx={{
                     overflowX: 'auto',
                     whiteSpace: 'nowrap',
                     pb: 1,
                     '&::-webkit-scrollbar': { display: 'none' }
                 }}>
-                    <Stack direction="row" spacing={1}>
-                        {allergensList.map(allergen => (
-                            <Chip
-                                key={allergen}
-                                label={allergen}
-                                onClick={() => toggleAllergen(allergen)}
-                                variant={selectedAllergens.includes(allergen) ? 'filled' : 'outlined'}
-                                sx={{
-                                    bgcolor: selectedAllergens.includes(allergen) ? '#1A1A1A' : 'transparent',
-                                    color: selectedAllergens.includes(allergen) ? 'white' : '#757575',
-                                    borderColor: '#DDD',
-                                    fontWeight: 700,
-                                    fontSize: '0.75rem'
-                                }}
-                            />
-                        ))}
+                    <Stack direction="row" spacing={0.8}>
+                        {allergensList.map(allergen => {
+                            const active = selectedAllergens.includes(allergen);
+                            return (
+                                <Chip
+                                    key={allergen}
+                                    label={allergen}
+                                    onClick={() => toggleAllergen(allergen)}
+                                    variant={active ? 'filled' : 'outlined'}
+                                    sx={{
+                                        bgcolor: active ? '#1A1A1A' : 'transparent',
+                                        color: active ? 'white' : '#888',
+                                        borderColor: active ? '#1A1A1A' : '#DDD',
+                                        fontWeight: 700,
+                                        fontSize: '0.75rem',
+                                        transition: 'all 0.18s ease',
+                                        '&:hover': {
+                                            bgcolor: active ? '#333' : '#F5F5F5',
+                                        }
+                                    }}
+                                />
+                            );
+                        })}
                     </Stack>
                 </Box>
             </Box>

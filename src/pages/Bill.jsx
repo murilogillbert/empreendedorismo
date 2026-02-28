@@ -102,16 +102,16 @@ const Bill = () => {
                         <React.Fragment key={index}>
                             <ListItem sx={{ px: 0, py: 1.5, alignItems: 'flex-start' }}>
                                 <ListItemText
-                                    primary={<Typography sx={{ fontWeight: 700 }}>{item.quantity}x {item.name}</Typography>}
+                                    primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity}x {item.name}</Typography>}
                                     secondary={
-                                        <Box>
+                                        <Box component="span" sx={{ display: 'block' }}>
                                             {item.selectedAddons && item.selectedAddons.length > 0 && (
-                                                <Typography variant="caption" color="text.secondary" display="block">
+                                                <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                                                     Extras: {item.selectedAddons.map(a => a.name).join(', ')}
                                                 </Typography>
                                             )}
                                             {item.observations && (
-                                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block' }}>
+                                                <Typography component="span" variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block' }}>
                                                     "{item.observations}"
                                                 </Typography>
                                             )}
