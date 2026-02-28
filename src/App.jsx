@@ -1,6 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { getCurrentUser } from './utils/userStore'; // Importe a função que pega o usuário
 
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
@@ -75,6 +76,22 @@ const theme = createTheme({
 
 // ... theme ...
 
+const AdminRoute = () => {
+    const user = getCurrentUser();
+
+    // Se não estiver logado, chuta para a tela de login
+    if (!user) {
+        return <Navigate to="/auth/login" replace />;
+    }
+
+    // Se estiver logado, mas for apenas um CLIENTE, manda de volta pro cardápio
+    if (user.role !== 'ADMIN' && user.role !== 'COZINHA') {
+        return <Navigate to="/menu" replace />;
+    }
+
+    // Se passou nas verificações, libera a catraca!
+    return <Outlet />;
+};
 
 function App() {
     return (
@@ -97,7 +114,7 @@ function App() {
                         <Route path="register" element={<Register />} />
                     </Route>
 
-                    <Route path="admin">
+                    <Route path="admin" element={<AdminRoute />}>
                         <Route index element={<AdminPortal />} />
                         <Route path="management" element={<Management />} />
                         <Route path="kitchen" element={<Kitchen />} />
