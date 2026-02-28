@@ -93,9 +93,9 @@ const Pool = () => {
             <Card elevation={0} sx={{ p: 3, borderRadius: 4, mb: 3, border: '1px solid #F0F0F0', textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">Valor Restante</Typography>
                 <Typography variant="h3" sx={{ fontWeight: 900, color: '#FF8C00' }}>
-                    R$ {pool.remainingAmount.toFixed(2)}
+                    R$ {(pool.remainingAmount || 0).toFixed(2)}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">Total da Conta: R$ {pool.totalAmount.toFixed(2)}</Typography>
+                <Typography variant="body2" color="text.secondary">Total da Conta: R$ {(pool.totalAmount || 0).toFixed(2)}</Typography>
             </Card>
 
             {pool.isPaid ? (
@@ -121,7 +121,7 @@ const Pool = () => {
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             size="small"
-                            placeholder={`Máx R$ ${pool.remainingAmount.toFixed(2)}`}
+                            placeholder={`Máx R$ ${(pool.remainingAmount || 0).toFixed(2)}`}
                         />
                         <Button
                             variant="contained"
@@ -155,7 +155,7 @@ const Pool = () => {
                                         primary={<Typography sx={{ fontWeight: 700 }}>{c.contributorName}</Typography>}
                                         secondary={new Date(c.timestamp).toLocaleTimeString()}
                                     />
-                                    <Typography sx={{ fontWeight: 800, color: '#2e7d32' }}>+ R$ {c.amount.toFixed(2)}</Typography>
+                                    <Typography sx={{ fontWeight: 800, color: '#2e7d32' }}>+ R$ {(c.amount || 0).toFixed(2)}</Typography>
                                 </ListItem>
                                 {idx < pool.contributions.length - 1 && <Divider />}
                             </React.Fragment>
