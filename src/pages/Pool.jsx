@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ky from 'ky';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -44,17 +45,28 @@ const Pool = () => {
             return;
         }
 
-        // Direct pay simulation / Stripe integration placeholder
         try {
-            // In a real app, this would redirect to Stripe for the partial amount
-            // For now, we simulate success and update localStorage
-            const updatedPool = addContribution(poolId, payAmount, name);
-            setPool(updatedPool);
-            setAmount('');
-            setName('');
-            alert("Contribuição registrada com sucesso!");
+            // Reusing the backend logic but customized for a pool payment
+            const data = await ky.post('http://localhost:3001/create-checkout-session', {
+                json: {
+                    items: [
+                        { name: `Contribuição Mesa - ${name}`, price: payAmount, quantity: 1 }
+                    ],
+                    tip: 0,
+                    appTax: 0,
+                    metadata: { // Send metadata if backend supports, otherwise just pass in success URL params
+                        poolId: poolId,
+                        contributorName: name,
+                        contributedAmount: payAmount
+                    },
+                    customSuccessUrl: `http://localhost:3000/success?pool_id=${poolId}&amount=${payAmount}&name=${encodeURIComponent(name)}`
+                }
+            }).json();
+
+            window.location.href = data.url;
         } catch (err) {
-            console.error(err);
+            console.error("Stripe Checkout Error:", err);
+            alert(`Erro no pagamento: ${err.message}. Verifique se o servidor backend está rodando no porto 3001.`);
         }
     };
 

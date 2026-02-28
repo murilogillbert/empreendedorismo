@@ -83,7 +83,7 @@ const Orders = () => {
 
             <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
                 {orders.map((order, index) => (
-                    <React.Fragment key={`${order.id}-${order.timestamp}`}>
+                    <React.Fragment key={index}>
                         <ListItem
                             alignItems="flex-start"
                             sx={{ px: 0, py: 2 }}
@@ -101,20 +101,22 @@ const Orders = () => {
                                 />
                             </ListItemAvatar>
                             <ListItemText
+                                primaryTypographyProps={{ component: 'div' }}
+                                secondaryTypographyProps={{ component: 'div' }}
                                 primary={
                                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                                         <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                                             {order.quantity}x {order.name}
                                         </Typography>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#FF8C00' }}>
-                                            R$ {(order.finalPrice || order.price).toFixed(2)}
+                                            R$ {parseFloat(order.finalPrice ?? order.price ?? 0).toFixed(2)}
                                         </Typography>
                                     </Stack>
                                 }
                                 secondary={
-                                    <Box sx={{ mt: 0.5 }}>
+                                    <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
                                         {order.selectedAddons && order.selectedAddons.length > 0 && (
-                                            <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.5 }}>
+                                            <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
                                                 {order.selectedAddons.map((addon, i) => (
                                                     <Chip
                                                         key={i}
@@ -123,10 +125,10 @@ const Orders = () => {
                                                         sx={{ fontSize: '0.65rem', height: 20, bgcolor: '#FFF8F0', color: '#FF8C00', fontWeight: 700 }}
                                                     />
                                                 ))}
-                                            </Stack>
+                                            </Box>
                                         )}
                                         {order.observations && (
-                                            <Typography variant="caption" sx={{ display: 'block', fontStyle: 'italic', mb: 1, color: 'text.secondary' }}>
+                                            <Typography component="span" variant="caption" sx={{ display: 'block', fontStyle: 'italic', mb: 1, color: 'text.secondary' }}>
                                                 Obs: "{order.observations}"
                                             </Typography>
                                         )}
@@ -141,7 +143,7 @@ const Orders = () => {
                                                 '& .MuiChip-icon': { color: 'inherit' }
                                             }}
                                         />
-                                        <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                                        <Typography component="span" variant="caption" sx={{ display: 'block', mt: 0.5 }}>
                                             Vite Restaurante • {new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </Typography>
                                     </Box>

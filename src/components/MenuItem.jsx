@@ -1,13 +1,12 @@
 import React from 'react';
 import {
     Card,
-    CardContent,
     CardMedia,
     Typography,
     Box,
-    Button,
+    Chip,
     Stack,
-    Chip
+    IconButton
 } from '@mui/material';
 import { Plus } from 'lucide-react';
 
@@ -18,92 +17,108 @@ const MenuItem = ({ name, description, price, imageUrl, onAdd, allergens = [] })
             onClick={onAdd}
             sx={{
                 display: 'flex',
-                borderRadius: 4,
-                border: '1px solid #F0F0F0',
+                borderRadius: 2,
+                border: '1.5px solid #F0F0F0',
                 mb: 2,
                 overflow: 'hidden',
                 bgcolor: '#FFFFFF',
                 cursor: 'pointer',
-                transition: 'transform 0.2s, box-shadow 0.2s',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                    borderColor: '#FF8C00'
+                    transform: 'translateY(-3px)',
+                    boxShadow: '0 8px 24px rgba(255, 140, 0, 0.12)',
+                    borderColor: '#FF8C00',
+                    '& .add-btn': {
+                        bgcolor: '#FF8C00',
+                        color: '#fff',
+                        transform: 'scale(1.1)',
+                    }
                 }
             }}
         >
-            {/* Left Side: Image and Price Range */}
-            <Stack spacing={1} sx={{ p: 2, width: 120, alignItems: 'center', justifyContent: 'center' }}>
+            {/* Image and Price */}
+            <Box sx={{ minWidth: 110, width: 110, display: 'flex', flexDirection: 'column', bgcolor: '#FAFAFA', borderRight: '1px solid #F0F0F0' }}>
                 <CardMedia
                     component="img"
-                    image={imageUrl || 'https://placehold.co/100x100?text=No+Image'}
+                    image={imageUrl || 'https://placehold.co/110x110?text=🍽️'}
                     alt={name}
-                    sx={{ width: 100, height: 100, borderRadius: 2 }}
+                    sx={{ width: 110, height: 110, objectFit: 'cover' }}
                 />
-            </Stack>
+                <Box sx={{ py: 1, px: 0.5, textAlign: 'center', mt: 'auto' }}>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 900, color: '#FF8C00' }}>
+                        R$ {typeof price === 'number' ? price.toFixed(2) : parseFloat(price ?? 0).toFixed(2)}
+                    </Typography>
+                </Box>
+            </Box>
 
-            {/* Right Side: Title, Description, and Customization indicator */}
-            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2, '&:last-child': { pb: 2 } }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 0.5 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1A1A1A', lineHeight: 1.2 }}>
+            {/* Content */}
+            <Box sx={{ flex: 1, p: 2, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1A1A1A', lineHeight: 1.25, mb: 0.5 }}>
                         {name}
                     </Typography>
-                </Stack>
+                    <Typography variant="body2" color="text.secondary" sx={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        fontSize: '0.78rem',
+                        lineHeight: 1.45,
+                        mb: 1,
+                    }}>
+                        {description}
+                    </Typography>
+                </Box>
 
-                <Typography variant="caption" sx={{ fontWeight: 800, color: '#FF8C00', mb: 1 }}>
-                    A partir de R$ {price.toFixed(2)}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+                    {/* Allergen chips */}
+                    {allergens && allergens.length > 0 ? (
+                        <Stack direction="row" spacing={0.4} sx={{ flexWrap: 'wrap', gap: 0.4 }}>
+                            {allergens.slice(0, 2).map((allergen) => (
+                                <Chip
+                                    key={allergen}
+                                    label={allergen}
+                                    size="small"
+                                    sx={{
+                                        fontSize: '0.6rem',
+                                        height: 18,
+                                        color: '#9E6B00',
+                                        bgcolor: '#FFF3CD',
+                                        border: 'none',
+                                        fontWeight: 700,
+                                        '& .MuiChip-label': { px: 0.8 }
+                                    }}
+                                />
+                            ))}
+                            {allergens.length > 2 && (
+                                <Chip
+                                    label={`+${allergens.length - 2}`}
+                                    size="small"
+                                    sx={{ fontSize: '0.6rem', height: 18, '& .MuiChip-label': { px: 0.8 } }}
+                                />
+                            )}
+                        </Stack>
+                    ) : <Box />}
 
-                <Typography variant="body2" color="text.secondary" sx={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    flexGrow: 1,
-                    mb: 1
-                }}>
-                    {description}
-                </Typography>
-
-                {allergens && allergens.length > 0 && (
-                    <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.5 }}>
-                        {allergens.map((allergen) => (
-                            <Chip
-                                key={allergen}
-                                label={allergen}
-                                size="small"
-                                variant="outlined"
-                                sx={{
-                                    fontSize: '0.65rem',
-                                    height: 20,
-                                    color: '#757575',
-                                    borderColor: '#E0E0E0',
-                                    '& .MuiChip-label': { px: 1 }
-                                }}
-                            />
-                        ))}
-                    </Stack>
-                )}
-
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 'auto' }}>
-                    <Button
-                        variant="soft"
+                    {/* Add button */}
+                    <IconButton
+                        className="add-btn"
                         size="small"
-                        startIcon={<Plus size={16} />}
                         sx={{
+                            bgcolor: '#FFF3E0',
                             color: '#FF8C00',
-                            bgcolor: '#FFF8F0',
-                            borderRadius: 3,
-                            textTransform: 'none',
-                            fontWeight: 800,
-                            pointerEvents: 'none', // Click handled by Card
-                            '& hover': { bgcolor: '#FFF0E0' }
+                            width: 32,
+                            height: 32,
+                            borderRadius: 2,
+                            transition: 'all 0.2s ease',
+                            flexShrink: 0,
+                            ml: 1,
                         }}
                     >
-                        Customizar
-                    </Button>
+                        <Plus size={16} strokeWidth={2.5} />
+                    </IconButton>
                 </Box>
-            </CardContent>
+            </Box>
         </Card>
     );
 };

@@ -9,6 +9,7 @@ import Orders from './pages/Orders';
 import Bill from './pages/Bill';
 import Pool from './pages/Pool';
 import Profile from './pages/Profile';
+import Success from './pages/Success';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import AdminPortal from './pages/Admin/AdminPortal';
@@ -87,6 +88,7 @@ function App() {
                         <Route path="orders" element={<Orders />} />
                         <Route path="bill" element={<Bill />} />
                         <Route path="pool/:poolId" element={<Pool />} />
+                        <Route path="success" element={<Success />} />
                         <Route path="profile" element={<Profile />} />
                     </Route>
 
