@@ -38,7 +38,7 @@ const Bill = () => {
         fetchOrders();
     }, []);
 
-    const subtotal = orders.reduce((acc, item) => acc + ((item.finalPrice || item.price) * item.quantity), 0);
+    const subtotal = orders.reduce((acc, item) => acc + (parseFloat(item.finalPrice ?? item.price ?? 0) * item.quantity), 0);
     const waiterTip = subtotal * (waiterTipPercent / 100);
     const appTax = subtotal * 0.01;
     const total = subtotal + waiterTip + appTax;
@@ -59,7 +59,7 @@ const Bill = () => {
                 json: {
                     items: orders.map(o => ({
                         name: o.name + (o.selectedAddons?.length ? ` (+ ${o.selectedAddons.map(a => a.name).join(', ')})` : ''),
-                        price: o.finalPrice || o.price,
+                        price: parseFloat(o.finalPrice ?? o.price ?? 0),
                         quantity: o.quantity
                     })),
                     tip: waiterTip,
@@ -118,7 +118,7 @@ const Bill = () => {
                                         </Box>
                                     }
                                 />
-                                <Typography sx={{ fontWeight: 800 }}>R$ {((item.finalPrice || item.price) * item.quantity).toFixed(2)}</Typography>
+                                <Typography sx={{ fontWeight: 800 }}>R$ {(parseFloat(item.finalPrice ?? item.price ?? 0) * item.quantity).toFixed(2)}</Typography>
                             </ListItem>
                         </React.Fragment>
                     ))}

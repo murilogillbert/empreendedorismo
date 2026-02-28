@@ -10,10 +10,6 @@ const { Pool } = pg;
 
 dotenv.config();
 
-console.log("=== DEBUG DO BANCO ===");
-console.log("URL lida pelo Node:", process.env.DATABASE_URL);
-console.log("======================");
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const app = express();
 
@@ -324,7 +320,7 @@ app.get('/api/orders', async (req, res) => {
                 p.id_pedido as id,
                 p.status,
                 p.criado_em as timestamp,
-                pi.quantidade,
+                pi.quantidade as quantity,
                 pi.valor_unitario_base as price,
                 pi.final_price as "finalPrice",
                 pi.observacoes as observations,
