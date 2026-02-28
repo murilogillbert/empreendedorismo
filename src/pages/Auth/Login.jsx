@@ -16,8 +16,18 @@ const Login = () => {
         setLoading(true);
         setError(null);
         try {
-            await loginUser(formData);
-            navigate('/profile');
+            // Pegamos o usuário retornado pela função
+            const loggedUser = await loginUser(formData);
+
+            // Redirecionamento inteligente baseado no Papel (role)
+            if (loggedUser.role === 'ADMIN') {
+                navigate('/admin');
+            } else if (loggedUser.role === 'COZINHA') {
+                navigate('/admin/kitchen');
+            } else {
+                navigate('/menu'); // Clientes vão para o cardápio
+            }
+
         } catch (err) {
             setError(err.message);
         } finally {
