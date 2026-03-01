@@ -8,10 +8,10 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 3,
-    connectionTimeoutMillis: 15000,
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  max: 3,
+  connectionTimeoutMillis: 15000,
 });
 
 const SCHEMA_SQL = `
@@ -78,6 +78,9 @@ CREATE TABLE restaurantes (
     logradouro VARCHAR(200) NULL,
     cidade VARCHAR(100) NULL,
     estado VARCHAR(2) NULL,
+    latitude DECIMAL(10, 8) NULL,
+    longitude DECIMAL(11, 8) NULL,
+    slug VARCHAR(100) NULL UNIQUE,
     horario_fechamento TIME NULL,
     ativo BOOLEAN NOT NULL DEFAULT true
 );
@@ -245,8 +248,8 @@ EXECUTE FUNCTION atualizar_timestamp();
 
 const SEED_SQL = `
 -- Restaurante principal
-INSERT INTO restaurantes (id_restaurante, nome_fantasia, cnpj, logradouro, cidade, estado, horario_fechamento)
-VALUES (1, 'Vite Gourmet Burger', '12.345.678/0001-90', 'Av. Paulista, 1000', 'São Paulo', 'SP', '23:00:00')
+INSERT INTO restaurantes (id_restaurante, nome_fantasia, cnpj, logradouro, cidade, estado, latitude, longitude, slug, horario_fechamento)
+VALUES (1, 'Vite Gourmet Burger', '12.345.678/0001-90', 'Av. Paulista, 1000', 'São Paulo', 'SP', -23.561414, -46.656461, 'vite-gourmet', '23:00:00')
 ON CONFLICT (id_restaurante) DO NOTHING;
 
 -- Reinicia a sequência para garantir que o id correto seja usado
@@ -378,37 +381,37 @@ ON CONFLICT DO NOTHING;
 `;
 
 async function run() {
-    const client = await pool.connect();
-    console.log('✅ Conectado ao Neon com sucesso!');
+  const client = await pool.connect();
+  console.log('✅ Conectado ao Neon com sucesso!');
 
-    try {
-        console.log('\n📋 Criando schema (pode levar alguns segundos)...');
-        await client.query(SCHEMA_SQL);
-        console.log('✅ Schema criado com sucesso!');
+  try {
+    console.log('\n📋 Criando schema (pode levar alguns segundos)...');
+    await client.query(SCHEMA_SQL);
+    console.log('✅ Schema criado com sucesso!');
 
-        console.log('\n🌱 Inserindo dados iniciais...');
-        await client.query(SEED_SQL);
-        console.log('✅ Dados iniciais inseridos com sucesso!');
+    console.log('\n🌱 Inserindo dados iniciais...');
+    await client.query(SEED_SQL);
+    console.log('✅ Dados iniciais inseridos com sucesso!');
 
-        // Verificações
-        const tablesCount = await client.query("SELECT COUNT(*) FROM mesas");
-        const menuCount = await client.query("SELECT COUNT(*) FROM cardapio_itens");
-        const papeis = await client.query("SELECT nome FROM papeis");
+    // Verificações
+    const tablesCount = await client.query("SELECT COUNT(*) FROM mesas");
+    const menuCount = await client.query("SELECT COUNT(*) FROM cardapio_itens");
+    const papeis = await client.query("SELECT nome FROM papeis");
 
-        console.log('\n📊 Resumo do banco de dados:');
-        console.log(`  - Mesas: ${tablesCount.rows[0].count}`);
-        console.log(`  - Itens no cardápio: ${menuCount.rows[0].count}`);
-        console.log(`  - Papéis: ${papeis.rows.map(r => r.nome).join(', ')}`);
-        console.log('\n🎉 Migração concluída! O servidor está pronto para usar o Neon.');
+    console.log('\n📊 Resumo do banco de dados:');
+    console.log(`  - Mesas: ${tablesCount.rows[0].count}`);
+    console.log(`  - Itens no cardápio: ${menuCount.rows[0].count}`);
+    console.log(`  - Papéis: ${papeis.rows.map(r => r.nome).join(', ')}`);
+    console.log('\n🎉 Migração concluída! O servidor está pronto para usar o Neon.');
 
-    } catch (err) {
-        console.error('\n❌ Erro durante a migração:', err.message);
-        console.error(err.stack);
-        process.exit(1);
-    } finally {
-        client.release();
-        await pool.end();
-    }
+  } catch (err) {
+    console.error('\n❌ Erro durante a migração:', err.message);
+    console.error(err.stack);
+    process.exit(1);
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 run();

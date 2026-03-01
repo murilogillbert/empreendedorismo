@@ -74,6 +74,9 @@ CREATE TABLE restaurantes (
     logradouro VARCHAR(200) NULL,
     cidade VARCHAR(100) NULL,
     estado VARCHAR(2) NULL,
+    latitude DECIMAL(10, 8) NULL,
+    longitude DECIMAL(11, 8) NULL,
+    slug VARCHAR(100) NULL UNIQUE,
     ativo BOOLEAN NOT NULL DEFAULT true
 );
 
