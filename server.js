@@ -155,6 +155,29 @@ app.use(express.json());
 
 const YOUR_DOMAIN = process.env.BASE_URL || 'http://localhost:3000';
 
+// --- AUTH MIDDLEWARE ---
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (token == null) return res.status(401).json({ error: 'Autenticação necessária' });
+
+    jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret', (err, user) => {
+        if (err) return res.status(403).json({ error: 'Token inválido ou expirado' });
+        req.user = user;
+        next();
+    });
+};
+
+const requireRole = (role) => {
+    return (req, res, next) => {
+        if (!req.user || req.user.role !== role) {
+            return res.status(403).json({ error: 'Acesso restrito' });
+        }
+        next();
+    };
+};
+
 // --- AUTH CONTEXT ---
 
 // POST /api/auth/register - Register a new user (CLIENTE)
