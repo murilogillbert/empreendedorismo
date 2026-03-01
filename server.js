@@ -454,8 +454,8 @@ app.delete('/api/menu/:id', async (req, res) => {
 // POST /api/session/join
 app.post('/api/session/join', async (req, res) => {
     const { tableCode } = req.body;
-    // user ID 4 as placeholder for anonymous clients in this demo, or we could pass user ID if logged in.
-    const userId = req.body.userId || 4;
+    // user ID 1 as placeholder for anonymous clients in this demo, or we could pass user ID if logged in.
+    const userId = req.body.userId || 1;
 
     if (!tableCode) {
         return res.status(400).json({ error: 'Código da mesa é obrigatório' });
