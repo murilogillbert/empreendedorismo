@@ -598,7 +598,7 @@ app.get('/api/pool/session/:sessionId', async (req, res) => {
             [poolId]
         );
 
-        const paid = contributions.filter(c => ['PAGO','AUTORIZADO','CAPTURADO'].includes(c.status)).reduce((acc, c) => acc + c.amount, 0);
+        const paid = contributions.filter(c => ['PAGO', 'AUTORIZADO', 'CAPTURADO'].includes(c.status)).reduce((acc, c) => acc + c.amount, 0);
         res.json({
             pool: {
                 id: poolId,
@@ -648,7 +648,7 @@ app.get('/api/pool/session/:sessionId/all', async (req, res) => {
                 [poolId]
             );
 
-            const paid = contributions.filter(c => ['PAGO','AUTORIZADO','CAPTURADO'].includes(c.status)).reduce((acc, c) => acc + c.amount, 0);
+            const paid = contributions.filter(c => ['PAGO', 'AUTORIZADO', 'CAPTURADO'].includes(c.status)).reduce((acc, c) => acc + c.amount, 0);
             return {
                 id: poolId,
                 totalAmount: parseFloat(poolData.valor_total),
@@ -936,16 +936,24 @@ app.get('/api/waiter/tables/:tableId', async (req, res) => {
         `;
         const ordersRes = await pool.query(ordersQuery, [sessionId]);
 
-        // Buscar pendencia da Pool (calculo simulado)
-        let total_pendente = ordersRes.rows.reduce((acc, curr) => acc + parseFloat(curr.valor_total) * curr.quantidade, 0);
+        // Buscar detalhes da pool se existir
+        const poolCheckRes = await pool.query(
+            "SELECT id_pagamento, valor_total, status FROM pagamentos WHERE id_sessao = $1 AND status IN ('PENDENTE', 'CAPTURADO') ORDER BY criado_em DESC LIMIT 1",
+            [sessionId]
+        );
 
-        // Se tem pool ativa, abata o que ja pagaram
-        const poolCheckRes = await pool.query("SELECT id_pagamento, valor_total FROM pagamentos WHERE id_sessao = $1 AND status IN ('PENDENTE', 'CAPTURADO') LIMIT 1", [sessionId]);
+        let pool_info = null;
         if (poolCheckRes.rows.length > 0) {
-            const poolId = poolCheckRes.rows[0].id_pagamento;
-            const sumRes = await pool.query("SELECT SUM(valor) as total_pago FROM pagamentos_divisoes WHERE id_pagamento = $1", [poolId]);
-            const pago = parseFloat(sumRes.rows[0].total_pago || 0);
-            total_pendente = Math.max(total_pendente - pago, 0);
+            const poolData = poolCheckRes.rows[0];
+            const sumRes = await pool.query("SELECT SUM(valor) as total_pago FROM pagamentos_divisoes WHERE id_pagamento = $1", [poolData.id_pagamento]);
+            const total_pago = parseFloat(sumRes.rows[0].total_pago || 0);
+            pool_info = {
+                id: poolData.id_pagamento,
+                total: parseFloat(poolData.valor_total),
+                pago: total_pago,
+                restante: Math.max(parseFloat(poolData.valor_total) - total_pago, 0),
+                status: poolData.status
+            };
         }
 
         res.json({
@@ -953,7 +961,8 @@ app.get('/api/waiter/tables/:tableId', async (req, res) => {
             status: 'ABERTA',
             sessao_id: sessionId,
             pedidos: ordersRes.rows,
-            total_pendente
+            total_itens: ordersRes.rows.reduce((acc, curr) => acc + parseFloat(curr.valor_total) * curr.quantidade, 0),
+            pool: pool_info
         });
     } catch (e) {
         res.status(500).json({ error: e.message });
