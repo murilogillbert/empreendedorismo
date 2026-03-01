@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Card, Typography, Stack, Button, Container } from '@mui/material';
-import { ChefHat, Settings, ArrowLeft } from 'lucide-react';
+import { ChefHat, Settings, ArrowLeft, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const AdminPortal = () => {
@@ -59,6 +59,30 @@ const AdminPortal = () => {
                         <Box>
                             <Typography variant="h6" sx={{ fontWeight: 800 }}>Cozinha</Typography>
                             <Typography variant="body2" color="text.secondary">Painel Kanban de pedidos em tempo real</Typography>
+                        </Box>
+                    </Card>
+
+                    {/* Botão Direto para o Garçom */}
+                    <Card
+                        onClick={() => navigate('/waiter')}
+                        sx={{
+                            p: 4,
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            transition: '0.3s',
+                            '&:hover': { transform: 'translateY(-5px)', boxShadow: 6, borderColor: '#0288D1' },
+                            border: '2px solid transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 3
+                        }}
+                    >
+                        <Box sx={{ bgcolor: '#E1F5FE', p: 2, borderRadius: 3 }}>
+                            <Users size={40} color="#0288D1" />
+                        </Box>
+                        <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 800 }}>Garçom</Typography>
+                            <Typography variant="body2" color="text.secondary">Painel de atendimento e mesas</Typography>
                         </Box>
                     </Card>
 

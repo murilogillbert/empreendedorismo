@@ -13,16 +13,15 @@ import {
 } from '@mui/material';
 import { ChefHat, Clock, CheckCircle2, PlayCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getOrders, updateOrderStatus } from '../../utils/orderStore';
+import { getKitchenOrders, updateOrderStatus } from '../../utils/orderStore';
 
 const Kitchen = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
 
     const fetchOrdersData = async () => {
-        // Only active orders for kitchen
-        const allOrders = await getOrders();
-        const active = allOrders.filter(o => ['Recebido', 'Preparando', 'Pronto'].includes(o.status));
+        // Agora busca todos os pedidos ativos do restaurante inteiro
+        const active = await getKitchenOrders();
         setOrders(active);
     };
 
@@ -95,7 +94,7 @@ const Kitchen = () => {
                                 {getOrdersByStatus(col.status).map((order) => (
                                     <Card key={order.id} sx={{ p: 2, borderRadius: 3, border: '1px solid #EEE' }}>
                                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-                                            PEDIDO #{order.id} • {order.timestamp}
+                                            PEDIDO #{order.orderId} • {order.tableIdentifier || `Mesa ${order.tableId}`}
                                         </Typography>
                                         <Typography variant="h5" sx={{ fontWeight: 900, mt: 1, color: '#1A1A1A' }}>
                                             {order.quantity}x {order.name}
@@ -137,7 +136,7 @@ const Kitchen = () => {
                                                     variant="contained"
                                                     color="warning"
                                                     sx={{ bgcolor: '#FF8C00', fontWeight: 700 }}
-                                                    onClick={() => handleStatusUpdate(order.id, 'Preparando')}
+                                                    onClick={() => handleStatusUpdate(order.orderId, 'Preparando')}
                                                 >
                                                     Começar
                                                 </Button>
@@ -148,7 +147,7 @@ const Kitchen = () => {
                                                     variant="contained"
                                                     color="success"
                                                     sx={{ bgcolor: '#2e7d32', fontWeight: 700 }}
-                                                    onClick={() => handleStatusUpdate(order.id, 'Pronto')}
+                                                    onClick={() => handleStatusUpdate(order.orderId, 'Pronto')}
                                                 >
                                                     Pronto
                                                 </Button>
@@ -159,7 +158,7 @@ const Kitchen = () => {
                                                     variant="outlined"
                                                     color="inherit"
                                                     sx={{ fontWeight: 700 }}
-                                                    onClick={() => handleStatusUpdate(order.id, 'Entregue')}
+                                                    onClick={() => handleStatusUpdate(order.orderId, 'Entregue')}
                                                 >
                                                     Entregue
                                                 </Button>
