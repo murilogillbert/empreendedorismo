@@ -35,7 +35,13 @@ app.get('/', (req, res) => {
     res.status(200).send('API do Restaurante está Online e Rodando!');
 });
 
-app.use(cors());
+app.use(cors({
+    origin: ['https://empreendedorismo-omega.vercel.app', 'http://localhost:5173', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+app.use(express.json());
 app.use(express.static('public'));
 
 // --- STRIPE WEBHOOK ---
