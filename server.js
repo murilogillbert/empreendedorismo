@@ -465,8 +465,8 @@ app.post('/api/session/join', async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // Find table by code
-        const tableRes = await client.query('SELECT id_mesa FROM mesas WHERE identificador_mesa = $1 AND ativa = true', [tableCode]);
+        // Find table by code (case-insensitive)
+        const tableRes = await client.query('SELECT id_mesa FROM mesas WHERE UPPER(identificador_mesa) = UPPER($1) AND ativa = true', [tableCode]);
         if (tableRes.rows.length === 0) {
             return res.status(404).json({ error: 'Mesa não encontrada ou inativa' });
         }

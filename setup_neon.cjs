@@ -96,7 +96,9 @@ CREATE TABLE mesas (
     id_restaurante INTEGER NOT NULL REFERENCES restaurantes(id_restaurante) ON DELETE CASCADE,
     identificador_mesa VARCHAR(20) NOT NULL,
     capacidade INTEGER DEFAULT 4,
-    ativa BOOLEAN NOT NULL DEFAULT true
+    ativa BOOLEAN NOT NULL DEFAULT true,
+    chamar_garcom BOOLEAN DEFAULT false,
+    chamar_garcom_em TIMESTAMP NULL
 );
 
 CREATE TABLE sessoes (
@@ -262,11 +264,11 @@ ON CONFLICT (id_restaurante) DO NOTHING;
 
 -- Mesas
 INSERT INTO mesas (id_restaurante, identificador_mesa, capacidade) VALUES
-(1, 'Mesa 01', 2),
-(1, 'Mesa 02', 2),
-(1, 'Mesa 03', 4),
-(1, 'Mesa 04', 4),
-(1, 'Mesa 05', 6),
+(1, 'MESA 01', 2),
+(1, 'MESA 02', 2),
+(1, 'MESA 03', 4),
+(1, 'MESA 04', 4),
+(1, 'MESA 05', 6),
 (1, 'VIP 01', 8)
 ON CONFLICT DO NOTHING;
 
