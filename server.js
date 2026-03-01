@@ -13,11 +13,21 @@ dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const app = express();
 
+// Pool otimizado para Neon PostgreSQL
+// Neon usa connection pooling e suporta SSL com channel_binding
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    max: 10,                    // máximo de conexões simultâneas
+    idleTimeoutMillis: 30000,  // fecha conexões ociosas após 30s
+    connectionTimeoutMillis: 10000, // timeout para obter conexão
+});
+
+// Log de erros do pool para facilitar diagnóstico
+pool.on('error', (err) => {
+    console.error('[Pool] Erro inesperado na conexão:', err.message);
 });
 
 app.use(cors());
