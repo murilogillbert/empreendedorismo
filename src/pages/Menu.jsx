@@ -83,7 +83,7 @@ const Menu = () => {
         <Box sx={{ pb: 8 }}>
             <Box sx={{ mb: 4, mt: 1 }}>
                 <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--text-main)', letterSpacing: -1 }}>
-                    Cardápio
+                    MENU
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'var(--text-muted)', fontWeight: 500 }}>
                     O que vamos pedir hoje? 😋

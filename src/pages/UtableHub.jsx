@@ -80,7 +80,7 @@ const UtableHub = () => {
                 zIndex: 100
             }}>
                 <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: -1 }}>
-                    <span style={{ color: '#FF8C00' }}>U</span>TABLE
+                    <span style={{ color: '#FF8C00' }}>u</span>table
                 </Typography>
                 <Button
                     variant="outlined"
