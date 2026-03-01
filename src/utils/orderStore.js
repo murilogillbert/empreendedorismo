@@ -117,14 +117,20 @@ export const removePoolItem = async (poolId, orderItemId) => {
 /**
  * Inicia o checkout Stripe para contribuição na pool
  */
-export const startPoolCheckout = async (poolId, amount, contributorName) => {
-    const data = await ky.post('http://localhost:4242/api/pool/checkout', {
-        json: {
-            poolId,
-            amount,
-            contributorName,
-            itemName: `Contribuição Mesa - ${contributorName}`
-        }
-    }).json();
-    return data.url;
+export const startPoolCheckout = async ({ poolId, amount, contributorName, itemName, userId }) => {
+    try {
+        const response = await api.post('pool/checkout', {
+            json: {
+                poolId,
+                amount,
+                contributorName,
+                itemName: itemName || `Contribuição Mesa - ${contributorName}`,
+                userId
+            }
+        }).json();
+        return response;
+    } catch (error) {
+        console.error('Error starting checkout:', error);
+        throw error;
+    }
 };

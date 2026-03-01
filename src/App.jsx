@@ -10,6 +10,7 @@ import Orders from './pages/Orders';
 import Bill from './pages/Bill';
 import Pool from './pages/Pool';
 import Profile from './pages/Profile';
+import SessionDetail from './pages/SessionDetail';
 import Success from './pages/Success';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
@@ -110,6 +111,7 @@ function App() {
                         <Route path="pool/:poolId" element={<Pool />} />
                         <Route path="success" element={<Success />} />
                         <Route path="profile" element={<Profile />} />
+                        <Route path="profile/session/:sessionId" element={<SessionDetail />} />
                     </Route>
 
                     <Route path="auth" element={<AuthLayout />}>
