@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField } from '@mui/material';
-import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
+import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid, Checkbox, FormControlLabel, Chip } from '@mui/material';
 import { Camera, ArrowLeft, ShoppingBag, X, Search, Play } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import ky from 'ky';
@@ -27,6 +27,10 @@ const WaiterTableManager = () => {
     const [submittingOrder, setSubmittingOrder] = useState(false);
     const [waiterTipPercent, setWaiterTipPercent] = useState(10);
     const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+    const [selectedOrderItemIds, setSelectedOrderItemIds] = useState([]);
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+    const [cardData, setCardData] = useState({ number: '', name: '', expiry: '', cvc: '' });
+    const [submittingPayment, setSubmittingPayment] = useState(false);
 
     // Função para buscar os dados da mesa (separada para podermos recarregar depois de um pedido)
     const fetchTableDetails = async () => {
@@ -111,6 +115,7 @@ const WaiterTableManager = () => {
             if (matches && matches.length > 0) {
                 const cleanestMatch = matches[0].replace(/[ -]/g, '');
                 setOcrResult(cleanestMatch);
+                setCardData(prev => ({ ...prev, number: cleanestMatch }));
                 alert(`Cartão Lido: **** **** **** ${cleanestMatch.slice(-4)}`);
             } else {
                 alert('Não foi possível ler os números do cartão. Tente novamente com mais luz.');
@@ -134,6 +139,43 @@ const WaiterTableManager = () => {
             alert('Erro ao fechar mesa.');
         }
     };
+
+    const handleConfirmWaiterPayment = async () => {
+        if (selectedOrderItemIds.length === 0) return;
+        setSubmittingPayment(true);
+        try {
+            await ky.post(`http://localhost:4242/api/waiter/payment/confirm`, {
+                json: {
+                    sessionId: tableDetails.sessao_id,
+                    orderItemIds: selectedOrderItemIds,
+                    totalAmount: totalComExtras,
+                    waiterTip: totalComExtras - (totalComExtras / (1 + (waiterTipPercent / 100) + 0.03)), // Aproximado
+                    contributorName: cardData.name || 'Cliente (Garçom)'
+                }
+            }).json();
+
+            alert('Pagamento registrado com sucesso!');
+            setPaymentModalOpen(false);
+            setSelectedOrderItemIds([]);
+            setCardData({ number: '', name: '', expiry: '', cvc: '' });
+            await fetchTableDetails();
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao processar pagamento.');
+        } finally {
+            setSubmittingPayment(false);
+        }
+    };
+
+    const toggleItemSelection = (id) => {
+        setSelectedOrderItemIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const selectedOrders = tableDetails?.pedidos?.filter(p => selectedOrderItemIds.includes(p.id_pedido_item)) || [];
+    const subtotalSelecionado = selectedOrders.reduce((acc, curr) => acc + (parseFloat(curr.valor_total) * curr.quantidade), 0);
+    const totalComExtras = subtotalSelecionado * (1 + (waiterTipPercent / 100) + 0.03);
 
     const handleOpenTableSession = async () => {
         if (!window.confirm('Deseja abrir esta mesa agora?')) return;
@@ -253,10 +295,31 @@ const WaiterTableManager = () => {
                         {tableDetails.pedidos && tableDetails.pedidos.length > 0 ? (
                             <List disablePadding>
                                 {tableDetails.pedidos.map((p, idx) => (
-                                    <React.Fragment key={idx}>
-                                        <ListItem sx={{ px: 0 }}>
+                                    <React.Fragment key={p.id_pedido_item || idx}>
+                                        <ListItem
+                                            sx={{
+                                                px: 0,
+                                                opacity: p.is_paid ? 0.5 : 1,
+                                                bgcolor: selectedOrderItemIds.includes(p.id_pedido_item) ? '#FFF9F0' : 'transparent',
+                                                borderRadius: 2,
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {!p.is_paid && (
+                                                <Checkbox
+                                                    size="small"
+                                                    checked={selectedOrderItemIds.includes(p.id_pedido_item)}
+                                                    onChange={() => toggleItemSelection(p.id_pedido_item)}
+                                                    sx={{ color: '#FF8C00', '&.Mui-checked': { color: '#FF8C00' } }}
+                                                />
+                                            )}
                                             <ListItemText
-                                                primary={<Typography sx={{ fontWeight: 700 }}>{p.quantidade}x {p.nome_item}</Typography>}
+                                                primary={
+                                                    <Typography sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        {p.quantidade}x {p.nome_item}
+                                                        {p.is_paid && <Chip label="Pago" size="small" color="success" variant="outlined" sx={{ height: 18, fontSize: '0.6rem' }} />}
+                                                    </Typography>
+                                                }
                                                 secondary={p.status}
                                             />
                                             <Typography sx={{ fontWeight: 800 }}>R$ {parseFloat(p.valor_total).toFixed(2)}</Typography>
@@ -297,14 +360,35 @@ const WaiterTableManager = () => {
                                     <Divider sx={{ my: 2 }} />
 
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Typography variant="h6" sx={{ fontWeight: 900 }}>Total Final</Typography>
-                                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#FF8C00' }}>
-                                            R$ {(
-                                                tableDetails.pool ? tableDetails.pool.total :
-                                                    (parseFloat(tableDetails.total_itens || 0) * (1 + (waiterTipPercent / 100) + 0.03))
-                                            ).toFixed(2)}
+                                        <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                                            {selectedOrderItemIds.length > 0 ? 'Total Selecionado' : 'Total Pendente'}
                                         </Typography>
+                                        <Box sx={{ textAlign: 'right' }}>
+                                            <Typography variant="h5" sx={{ fontWeight: 900, color: '#FF8C00' }}>
+                                                R$ {(
+                                                    selectedOrderItemIds.length > 0 ? totalComExtras :
+                                                        (parseFloat(tableDetails.total_itens || 0) * (1 + (waiterTipPercent / 100) + 0.03))
+                                                ).toFixed(2)}
+                                            </Typography>
+                                            {selectedOrderItemIds.length > 0 && (
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {selectedOrderItemIds.length} itens selecionados
+                                                </Typography>
+                                            )}
+                                        </Box>
                                     </Box>
+
+                                    {selectedOrderItemIds.length > 0 && (
+                                        <Button
+                                            variant="contained"
+                                            fullWidth
+                                            startIcon={<CreditCard />}
+                                            onClick={() => setPaymentModalOpen(true)}
+                                            sx={{ mt: 2, bgcolor: '#1A1A1A', height: 50, borderRadius: 3, fontWeight: 800, '&:hover': { bgcolor: '#000' } }}
+                                        >
+                                            Pagar Selecionados (R$ {totalComExtras.toFixed(2)})
+                                        </Button>
+                                    )}
 
                                     {tableDetails.pool && (
                                         <Box sx={{ mt: 2, p: 2, bgcolor: '#F0FDF4', borderRadius: 2, border: '1px solid #BBF7D0' }}>
@@ -369,6 +453,70 @@ const WaiterTableManager = () => {
                 item={selectedItem}
                 onAdd={handleConfirmOrder}
             />
+
+            {/* Modal de Pagamento */}
+            <Dialog open={paymentModalOpen} onClose={() => setPaymentModalOpen(false)} fullWidth maxWidth="xs">
+                <DialogTitle sx={{ fontWeight: 800 }}>Processar Pagamento</DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="h6" sx={{ textAlign: 'center', mb: 3, fontWeight: 900, color: '#FF8C00' }}>
+                        Total: R$ {totalComExtras.toFixed(2)}
+                    </Typography>
+
+                    <Stack spacing={2}>
+                        <TextField
+                            label="Número do Cartão"
+                            fullWidth
+                            value={cardData.number}
+                            onChange={(e) => setCardData({ ...cardData, number: e.target.value })}
+                            placeholder="**** **** **** ****"
+                        />
+                        <TextField
+                            label="Nome no Cartão"
+                            fullWidth
+                            value={cardData.name}
+                            onChange={(e) => setCardData({ ...cardData, name: e.target.value })}
+                        />
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                                <TextField
+                                    label="Validade"
+                                    fullWidth
+                                    value={cardData.expiry}
+                                    onChange={(e) => setCardData({ ...cardData, expiry: e.target.value })}
+                                    placeholder="MM/AA"
+                                />
+                            </Grid>
+                            <Grid item xs={6}>
+                                <TextField
+                                    label="CVC"
+                                    fullWidth
+                                    value={cardData.cvc}
+                                    onChange={(e) => setCardData({ ...cardData, cvc: e.target.value })}
+                                    placeholder="123"
+                                />
+                            </Grid>
+                        </Grid>
+                    </Stack>
+
+                    <Box sx={{ mt: 3, p: 2, bgcolor: '#FFF5E6', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Camera size={20} color="#FF8C00" />
+                        <Typography variant="body2" color="text.secondary">
+                            Dica: Use o escâner de cartão na tela anterior para preenchimento rápido.
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 2.5 }}>
+                    <Button onClick={() => setPaymentModalOpen(false)} sx={{ color: '#757575' }}>Cancelar</Button>
+                    <Button
+                        variant="contained"
+                        disabled={submittingPayment}
+                        onClick={handleConfirmWaiterPayment}
+                        sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#E67E00' }, fontWeight: 800, px: 4 }}
+                    >
+                        {submittingPayment ? <CircularProgress size={24} color="inherit" /> : 'Confirmar Pagamento'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };
