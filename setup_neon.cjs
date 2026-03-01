@@ -273,9 +273,12 @@ INSERT INTO mesas (id_restaurante, identificador_mesa, capacidade) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Usuário anônimo placeholder (id=1 para garantir referência nas sessões)
-INSERT INTO usuarios (nome_completo, email, telefone, senha_hash)
-VALUES ('Cliente Anônimo', 'anonimo@placeholder.com', '00000000000', 'PLACEHOLDER_HASH')
-ON CONFLICT (email) DO NOTHING;
+INSERT INTO usuarios (id_usuario, nome_completo, email, telefone, senha_hash)
+VALUES (1, 'Cliente Anônimo', 'anonimo@placeholder.com', '00000000000', 'PLACEHOLDER_HASH')
+ON CONFLICT (id_usuario) DO NOTHING;
+
+-- Reinicia a sequência para garantir que o id correto seja usado
+SELECT setval('usuarios_id_usuario_seq', (SELECT MAX(id_usuario) FROM usuarios));
 
 -- Cardápio
 INSERT INTO cardapio_itens (id_restaurante, nome, descricao, image_url, preco, categoria) VALUES
