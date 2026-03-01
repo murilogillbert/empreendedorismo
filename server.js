@@ -20,14 +20,25 @@ const pool = new Pool({
     }
 });
 
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://empreendedorismo-omega.vercel.app'
+];
+
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'https://empreendedorismo-omega.vercel.app'
-    ],
+    origin: function (origin, callback) {
+        // allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app')) {
+            return callback(null, true);
+        } else {
+            return callback(new Error('Not allowed by CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
 app.use(express.json());
 app.use(express.static('public'));
@@ -101,7 +112,6 @@ app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (re
 });
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 const YOUR_DOMAIN = process.env.BASE_URL || 'http://localhost:3000';
 
