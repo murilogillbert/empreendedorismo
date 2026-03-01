@@ -6,6 +6,15 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+// Captura erros que normalmente derrubariam o servidor sem deixar rastro
+process.on('uncaughtException', (err) => {
+    console.error('❌ ERRO CRÍTICO (Uncaught Exception):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ AVISO (Unhandled Rejection):', reason);
+});
+
 const { Pool } = pg;
 
 dotenv.config();
