@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Card, Stack, CircularProgress, Chip, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
-import { MapPin, Navigation, Camera, Search, User } from 'lucide-react';
+import { Box, Typography, Button, Card, Stack, CircularProgress, Chip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { MapPin, Navigation, Camera, User, RefreshCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ky from 'ky';
+// 🚀 1. Importando o leitor de QR Code real
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
 
@@ -13,9 +15,7 @@ const UtableHub = () => {
     const [locationError, setLocationError] = useState(null);
     const [activeRadius, setActiveRadius] = useState(3);
 
-    // QR Code scanner mock state
     const [scanDialogOpen, setScanDialogOpen] = useState(false);
-    const [mockQrUrl, setMockQrUrl] = useState('');
 
     const fetchRestaurants = async (lat, lng, radius) => {
         setLoading(true);
@@ -42,7 +42,6 @@ const UtableHub = () => {
                 },
                 (error) => {
                     console.error("Geologia error", error);
-                    // Fallback para Av. Paulista para fins de demonstração se o user negar
                     setLocationError("Localização não permitida. Usando local padrão (Av. Paulista, SP).");
                     fetchRestaurants(-23.561414, -46.656461, radius);
                 },
@@ -55,14 +54,24 @@ const UtableHub = () => {
     };
 
     useEffect(() => {
-        handleLocation(3); // Inicia com 3km
+        handleLocation(3);
     }, []);
 
-    const handleScanMock = () => {
-        if (!mockQrUrl) return;
+    // 🚀 2. Função que processa a leitura real da câmera
+    const handleRealScan = (scannedText) => {
+        if (!scannedText) return;
 
-        // Expected mock form: /restaurante-demo/MESA-01/menu
-        navigate(mockQrUrl);
+        try {
+            // Verifica se o QR Code tem uma URL completa (ex: https://www.utable.shop/restaurante-demo/MESA-01/menu)
+            const url = new URL(scannedText);
+            // Pega apenas o finalzinho para navegar dentro do seu app React
+            navigate(url.pathname + url.search);
+        } catch (e) {
+            // Se for apenas o caminho (ex: /restaurante-demo/MESA-01/menu)
+            navigate(scannedText);
+        }
+
+        setScanDialogOpen(false);
     };
 
     return (
@@ -161,9 +170,35 @@ const UtableHub = () => {
                 </Stack>
 
                 {locationError && (
-                    <Typography color="error" variant="caption" sx={{ display: 'block', mb: 2, fontWeight: 700 }}>
-                        {locationError}
-                    </Typography>
+                    <Box sx={{
+                        mb: 3, p: 2,
+                        bgcolor: '#FFF5F5',
+                        borderRadius: 3,
+                        border: '1px dashed #FCA5A5'
+                    }}>
+                        <Typography color="error" variant="body2" sx={{ fontWeight: 800, mb: 1.5 }}>
+                            {locationError}
+                        </Typography>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            color="error"
+                            onClick={() => handleLocation(activeRadius)}
+                            sx={{
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 800,
+                                display: 'flex',
+                                gap: 1
+                            }}
+                        >
+                            <RefreshCcw size={16} />
+                            Tentar localizar novamente
+                        </Button>
+                        <Typography variant="caption" sx={{ display: 'block', mt: 1, color: '#EF4444' }}>
+                            Dica: Se você negou o acesso antes, libere a permissão de localização ali em cima, na barra de endereço do navegador.
+                        </Typography>
+                    </Box>
                 )}
 
                 {/* Restaurant List */}
@@ -206,26 +241,32 @@ const UtableHub = () => {
                 )}
             </Box>
 
-            {/* Mock QR Scanner Dialog */}
-            <Dialog open={scanDialogOpen} onClose={() => setScanDialogOpen(false)} fullWidth PaperProps={{ sx: { borderRadius: 4, p: 1 } }}>
-                <DialogTitle sx={{ fontWeight: 900, textAlign: 'center' }}>Escanear QR Code</DialogTitle>
-                <DialogContent>
-                    <Box sx={{ width: '100%', height: 200, bgcolor: '#000', borderRadius: 3, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Typography color="white" variant="caption">Câmera ativa simulada</Typography>
+            {/* 🚀 3. O Dialog com a Câmera Real */}
+            <Dialog
+                open={scanDialogOpen}
+                onClose={() => setScanDialogOpen(false)}
+                fullWidth
+                maxWidth="xs"
+                PaperProps={{ sx: { borderRadius: 4, p: 1 } }}
+            >
+                <DialogTitle sx={{ fontWeight: 900, textAlign: 'center' }}>Aponte para a Mesa</DialogTitle>
+                <DialogContent sx={{ p: 1 }}>
+                    {/* Componente que abre a câmera e escaneia automaticamente */}
+                    <Box sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                        {scanDialogOpen && (
+                            <Scanner
+                                onScan={(result) => {
+                                    if (result && result.length > 0) {
+                                        handleRealScan(result[0].rawValue);
+                                    }
+                                }}
+                                onError={(error) => console.log('Erro na câmera:', error)}
+                            />
+                        )}
                     </Box>
-                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 700, color: 'text.secondary' }}>Simular leitura de URL:</Typography>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        placeholder="Ex: /restaurante-demo/MESA-01/menu"
-                        value={mockQrUrl}
-                        onChange={(e) => setMockQrUrl(e.target.value)}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                    />
                 </DialogContent>
                 <DialogActions sx={{ pb: 2, justifyContent: 'center' }}>
                     <Button onClick={() => setScanDialogOpen(false)} sx={{ color: '#757575', fontWeight: 700 }}>Cancelar</Button>
-                    <Button onClick={handleScanMock} variant="contained" sx={{ bgcolor: '#FF8C00', fontWeight: 700, borderRadius: 2 }}>Confirmar</Button>
                 </DialogActions>
             </Dialog>
 
