@@ -45,7 +45,7 @@ app.get('/', (req, res) => {
 });
 
 app.use(cors({
-    origin: ['https://empreendedorismo-omega.vercel.app', 'http://localhost:5173', 'http://localhost:3000'],
+    origin: ['https://www.utable.shop', 'https://utable.shop', 'https://empreendedorismo-omega.vercel.app', 'http://localhost:5173', 'http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
