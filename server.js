@@ -1142,7 +1142,7 @@ app.post('/api/waiter/tables/:tableId/close', async (req, res) => {
 });
 
 // --- CRON JOBS & AUTOMATION ---
-// Roda a cada 5 minutos para limpar mesas se tiver passado do horario de fechamento + 30m
+// Roda a cada 10 minutos para limpar mesas se tiver passado do horario de fechamento + 30m
 setInterval(async () => {
     try {
         const restRes = await pool.query("SELECT horario_fechamento FROM restaurantes WHERE id_restaurante = 1 AND horario_fechamento IS NOT NULL");
@@ -1155,37 +1155,40 @@ setInterval(async () => {
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
 
-        // Verifica timezone p/ facilitar comparacao linear no mesmo dia (+30m)
         const closeTotalMinutes = (closeHour * 60) + closeMinute;
         const currentTotalMinutes = (currentHour * 60) + currentMinute;
         const toleranceMinutes = 30;
 
-        let shouldClose = false;
+        let isClosedPeriod = false;
 
-        // Lida com fechamento que cruza a meia-noite (ex: 02:00) vs (23:00)
-        // Uma aborgagem super simples para demo:
+        // Se fecha à noite (ex 22:00)
         if (closeHour >= 12) {
-            // Fechamento antes da meia noite (ex 22:00 -> cai as 22:30. Se for 23:59 cai 00:29)
-            if (currentTotalMinutes >= (closeTotalMinutes + toleranceMinutes) || currentHour < 12) {
-                shouldClose = true;
+            // Está fechado se passou da hora de fechar OU se ainda é madrugada (antes das 06:00 por exemplo)
+            if (currentTotalMinutes >= (closeTotalMinutes + toleranceMinutes) || currentHour < 6) {
+                isClosedPeriod = true;
             }
-        } else {
-            // Restaurante fecha de madrugada (ex 02:00, cai 02:30)
+        }
+        // Se fecha de madrugada (ex 02:00)
+        else {
             if (currentTotalMinutes >= (closeTotalMinutes + toleranceMinutes) && currentHour < 12) {
-                shouldClose = true;
+                isClosedPeriod = true;
             }
         }
 
-        if (shouldClose) {
-            const res = await pool.query("UPDATE sessoes SET status = 'FECHADA' WHERE status = 'ABERTA' RETURNING id_sessao;");
+        if (isClosedPeriod) {
+            // IMPORTANTE: Só fechar sessões criadas HÁ MAIS DE 2 HORAS.
+            // Isso evita fechar sessões de teste abertas durante a manhã/madrugada.
+            const res = await pool.query(
+                "UPDATE sessoes SET status = 'FECHADA' WHERE status = 'ABERTA' AND criado_em < NOW() - INTERVAL '2 hours' RETURNING id_sessao;"
+            );
             if (res.rowCount > 0) {
-                console.log(`[Auto-Close] ${res.rowCount} sessoes foram fechadas por horario de funcionamento excedido.`);
+                console.log(`[Auto-Close] ${res.rowCount} sessoes antigas foram fechadas.`);
             }
         }
     } catch (e) {
         console.error('Error on auto-close cron:', e);
     }
-}, 5 * 60 * 1000); // 5 minutes
+}, 10 * 60 * 1000); // 10 minutes
 
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
