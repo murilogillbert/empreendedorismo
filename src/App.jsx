@@ -96,6 +96,23 @@ const AdminRoute = () => {
     return <Outlet />;
 };
 
+const WaiterRoute = () => {
+    const user = getCurrentUser();
+
+    // 1. Se não estiver logado, manda para o login
+    if (!user) {
+        return <Navigate to="/auth/login" replace />;
+    }
+
+    // 2. Se for um CLIENTE comum (ou seja, não for Garçom nem Admin), expulsa para o cardápio
+    if (user.role !== 'GARCOM' && user.role !== 'ADMIN') {
+        return <Navigate to="/menu" replace />;
+    }
+
+    // 3. Se passou, libera o acesso ao terminal!
+    return <Outlet />;
+};
+
 function App() {
     return (
         <ThemeProvider theme={theme}>
@@ -123,9 +140,11 @@ function App() {
                         <Route path="kitchen" element={<Kitchen />} />
                     </Route>
 
-                    <Route path="waiter" element={<WaiterLayout />}>
-                        <Route index element={<WaiterDashboard />} />
-                        <Route path="table/:tableId" element={<WaiterTableManager />} />
+                    <Route path="waiter" element={<WaiterRoute />}>
+                        <Route element={<WaiterLayout />}>
+                            <Route index element={<WaiterDashboard />} />
+                            <Route path="table/:tableId" element={<WaiterTableManager />} />
+                        </Route>
                     </Route>
                 </Routes>
             </BrowserRouter>
