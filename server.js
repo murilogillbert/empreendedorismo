@@ -312,34 +312,30 @@ app.get('/api/restaurants/nearby', async (req, res) => {
 
     try {
         // Haversine formula directly in SQL
+        // Haversine formula using CTE to allow filtering by the calculated 'distance' alias
         const query = `
-            SELECT 
-                r.id_restaurante,
-                r.nome_fantasia as name,
-                r.slug,
-                r.logradouro as address,
-                r.latitude,
-                r.longitude,
-                (
-                    6371 * acos(
-                        cos(radians($1)) * 
-                        cos(radians(r.latitude)) * 
-                        cos(radians(r.longitude) - radians($2)) + 
-                        sin(radians($1)) * 
-                        sin(radians(r.latitude))
-                    )
-                ) AS distance
-            FROM restaurantes r
-            WHERE r.ativo = true AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL
-            HAVING (
-                6371 * acos(
-                    cos(radians($1)) * 
-                    cos(radians(r.latitude)) * 
-                    cos(radians(r.longitude) - radians($2)) + 
-                    sin(radians($1)) * 
-                    sin(radians(r.latitude))
-                )
-            ) <= $3
+            WITH restaurant_distances AS (
+                SELECT 
+                    r.id_restaurante,
+                    r.nome_fantasia as name,
+                    r.slug,
+                    r.logradouro as address,
+                    r.latitude,
+                    r.longitude,
+                    (
+                        6371 * acos(
+                            cos(radians($1)) * 
+                            cos(radians(r.latitude)) * 
+                            cos(radians(r.longitude) - radians($2)) + 
+                            sin(radians($1)) * 
+                            sin(radians(r.latitude))
+                        )
+                    ) AS distance
+                FROM restaurantes r
+                WHERE r.ativo = true AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL
+            )
+            SELECT * FROM restaurant_distances
+            WHERE distance <= $3
             ORDER BY distance ASC;
         `;
 
