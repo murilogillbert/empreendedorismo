@@ -36,12 +36,13 @@ import {
     TrendingUp,
     DollarSign,
     ShoppingBag,
-    Plus,
     Edit,
     Trash2,
     ArrowLeft,
     PieChart as PieChartIcon,
-    BarChart as BarChartIcon
+    BarChart as BarChartIcon,
+    Settings as SettingsIcon,
+    ExternalLink
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -68,6 +69,7 @@ const Management = () => {
     const [metrics, setMetrics] = useState(null);
     const [period, setPeriod] = useState('1m');
     const [loading, setLoading] = useState(true);
+    const [stripeStatus, setStripeStatus] = useState({ connected: false, loading: true });
 
     // CRUD State
     const [openDialog, setOpenDialog] = useState(false);
@@ -106,7 +108,12 @@ const Management = () => {
         const fetchMetrics = async () => {
             setLoading(true);
             try {
-                const data = await ky.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4242'}/api/admin/metrics?period=${period}`).json();
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const data = await ky.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4242'}/api/admin/metrics?period=${period}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }).json();
                 setMetrics(data);
             } catch (e) {
                 console.error('Error fetching metrics:', e);
@@ -114,8 +121,46 @@ const Management = () => {
                 setLoading(false);
             }
         };
+
+        const fetchStripeStatus = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const status = await ky.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4242'}/api/admin/stripe/status`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                }).json();
+                setStripeStatus({ ...status, loading: false });
+            } catch (e) {
+                console.error('Error fetching Stripe status:', e);
+                setStripeStatus({ connected: false, loading: false });
+            }
+        };
+
         fetchMetrics();
+        fetchStripeStatus();
     }, [period]);
+
+    const handleStripeConnect = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                alert("Sessão expirada. Faça login novamente.");
+                return;
+            }
+
+            const response = await ky.post(`${import.meta.env.VITE_API_URL || 'http://localhost:4242'}/api/admin/stripe/onboard`, {
+                headers: { Authorization: `Bearer ${token}` }
+            }).json();
+
+            if (response.url) {
+                window.location.href = response.url; // Redireciona para o fluxo do Stripe
+            }
+        } catch (e) {
+            console.error('Error initiating Stripe connect:', e);
+            alert("Erro ao conectar conta Stripe.");
+        }
+    };
 
     // KPI Metrics simplified from real data
     const totalRevenue = metrics?.revenue || 0;
@@ -271,6 +316,7 @@ const Management = () => {
                     <Tab label="Overview" icon={<BarChartIcon size={18} />} iconPosition="start" />
                     <Tab label="Cardápio (CRUD)" icon={<Plus size={18} />} iconPosition="start" />
                     <Tab label="Histórico" icon={<PieChartIcon size={18} />} iconPosition="start" />
+                    <Tab label="Configurações" icon={<SettingsIcon size={18} />} iconPosition="start" />
                 </Tabs>
             </Box>
 
@@ -400,6 +446,71 @@ const Management = () => {
                         </TableBody>
                     </Table>
                 </TableContainer>
+            )}
+
+            {tab === 3 && (
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Card sx={{ p: 4, borderRadius: 4, border: '1px solid #F0F0F0' }}>
+                            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                Pagamentos e Repasses
+                                <Chip label="Stripe Connect" size="small" sx={{ bgcolor: '#635BFF', color: 'white', fontWeight: 700 }} />
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
+                                Conecte sua conta do Stripe para receber os pagamentos automaticamente na sua conta bancária. A taxa de serviço da plataforma (3%) já é descontada automaticamente na hora da transação.
+                            </Typography>
+
+                            {stripeStatus.loading ? (
+                                <Typography variant="body2">Verificando status de conexão...</Typography>
+                            ) : stripeStatus.connected ? (
+                                <Box sx={{ p: 3, bgcolor: '#E8F5E9', borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Avatar sx={{ bgcolor: '#4CAF50', width: 40, height: 40 }}>$</Avatar>
+                                    <Box>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#2E7D32' }}>Conta Conectada!</Typography>
+                                        <Typography variant="caption" sx={{ color: '#2E7D32', display: 'block' }}>
+                                            Repasses automáticos ativos.
+                                            {stripeStatus.details_submitted ? "" : " (Faltam informações no onboarding)"}
+                                        </Typography>
+                                    </Box>
+                                    {!stripeStatus.details_submitted && (
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            onClick={handleStripeConnect}
+                                            sx={{ ml: 'auto', borderColor: '#4CAF50', color: '#4CAF50' }}
+                                        >
+                                            Completar Cadastro
+                                        </Button>
+                                    )}
+                                </Box>
+                            ) : (
+                                <Box sx={{ textAlign: 'center', p: 4, bgcolor: '#FAFAFA', borderRadius: 3, border: '1px dashed #DDD' }}>
+                                    <DollarSign size={40} color="#757575" style={{ marginBottom: 16 }} />
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 1 }}>Receba com Stripe</Typography>
+                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                                        Crie ou conecte sua conta Express para habilitar os pagamentos na mesa.
+                                    </Typography>
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleStripeConnect}
+                                        endIcon={<ExternalLink size={16} />}
+                                        sx={{
+                                            bgcolor: '#635BFF',
+                                            color: 'white',
+                                            fontWeight: 800,
+                                            px: 4,
+                                            py: 1.5,
+                                            borderRadius: 2,
+                                            '&:hover': { bgcolor: '#5851DE' }
+                                        }}
+                                    >
+                                        Conectar Conta Stripe
+                                    </Button>
+                                </Box>
+                            )}
+                        </Card>
+                    </Grid>
+                </Grid>
             )}
 
             {/* Item Editor Dialog */}

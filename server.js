@@ -118,6 +118,35 @@ app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (re
             }
         }
     }
+
+    if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data.object;
+
+        // Log transaction splits
+        const amount = paymentIntent.amount_received / 100;
+        const appFee = paymentIntent.application_fee_amount ? (paymentIntent.application_fee_amount / 100) : 0;
+        const transfer = amount - appFee;
+
+        console.log(`[Stripe Webhook] PaymentIntent Succeeded: Total: ${amount} | Fee: ${appFee} | Transfer: ${transfer}`);
+
+        // Ensure payment intent was created via pool (has metadata)
+        if (paymentIntent.metadata && paymentIntent.metadata.poolId) {
+            const poolId = paymentIntent.metadata.poolId;
+
+            try {
+                await pool.query(
+                    `UPDATE pagamentos 
+                     SET taxa_plataforma = $1, repasse_restaurante = $2, status = 'CAPTURADO' 
+                     WHERE id_pagamento = $3`,
+                    [appFee, transfer, poolId]
+                );
+                console.log(`[Stripe Webhook] DB Updated for Pool ${poolId}`);
+            } catch (dbError) {
+                console.error('[Stripe Webhook] DB Error:', dbError);
+            }
+        }
+    }
+
     res.json({ received: true });
 });
 
@@ -788,6 +817,79 @@ app.get('/api/admin/kitchen/orders', async (req, res) => {
     }
 });
 
+// --- STRIPE CONNECT ONBOARDING ---
+
+app.get('/api/admin/stripe/status', authenticateToken, requireRole('ADMIN'), async (req, res) => {
+    try {
+        // Assume restaurante ID 1 (default from scope)
+        const restResult = await pool.query('SELECT stripe_account_id FROM restaurantes WHERE id_restaurante = 1');
+
+        if (restResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Restaurant not found' });
+        }
+
+        const stripeAccountId = restResult.rows[0].stripe_account_id;
+
+        if (!stripeAccountId) {
+            return res.json({ connected: false });
+        }
+
+        // Optional: Check with Stripe API if account is fully onboarded
+        try {
+            const account = await stripe.accounts.retrieve(stripeAccountId);
+            res.json({
+                connected: true,
+                details_submitted: account.details_submitted,
+                charges_enabled: account.charges_enabled
+            });
+        } catch (stripeErr) {
+            // Account might be deleted on Stripe but still in DB
+            res.json({ connected: false, error: 'Stripe account invalid' });
+        }
+
+    } catch (err) {
+        console.error('Error fetching Stripe status:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/stripe/onboard', authenticateToken, requireRole('ADMIN'), async (req, res) => {
+    try {
+        let stripeAccountId;
+
+        const restResult = await pool.query('SELECT stripe_account_id FROM restaurantes WHERE id_restaurante = 1');
+
+        if (restResult.rows[0]?.stripe_account_id) {
+            stripeAccountId = restResult.rows[0].stripe_account_id;
+        } else {
+            // Create Express Account
+            const account = await stripe.accounts.create({
+                type: 'express',
+                capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                },
+            });
+            stripeAccountId = account.id;
+
+            await pool.query('UPDATE restaurantes SET stripe_account_id = $1 WHERE id_restaurante = 1', [stripeAccountId]);
+        }
+
+        // Generate AccountLink for Onboarding
+        const accountLink = await stripe.accountLinks.create({
+            account: stripeAccountId,
+            refresh_url: `${YOUR_DOMAIN}/admin`, // Route user back if they abandon
+            return_url: `${YOUR_DOMAIN}/admin`,  // Success return
+            type: 'account_onboarding',
+        });
+
+        res.json({ url: accountLink.url });
+    } catch (e) {
+        console.error('Stripe Onboarding Error:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- STRIPE (Preserved but integrated with item price) ---
 
 app.post('/create-checkout-session', async (req, res) => {
@@ -837,12 +939,45 @@ app.post('/create-checkout-session', async (req, res) => {
         if (sessionId) successUrl += `&session_id=${sessionId}`;
         if (userId) successUrl += `&user_id=${userId}`;
 
-        const session = await stripe.checkout.sessions.create({
+        // Feature: Stripe Connect Split
+        let paymentIntentData = {};
+
+        // Fetch restaurant's Stripe Account ID if sessionId is provided
+        if (sessionId) {
+            const restQuery = await pool.query(`
+                SELECT r.stripe_account_id 
+                FROM restaurantes r
+                JOIN sessoes s ON s.id_restaurante = r.id_restaurante
+                WHERE s.id_sessao = $1
+            `, [sessionId]);
+
+            if (restQuery.rows.length > 0 && restQuery.rows[0].stripe_account_id) {
+                const acctId = restQuery.rows[0].stripe_account_id;
+
+                // Ensure platform gets exactly 3%
+                const feeAmount = Math.round(totalAmount * 0.03 * 100);
+
+                paymentIntentData = {
+                    application_fee_amount: feeAmount,
+                    transfer_data: {
+                        destination: acctId
+                    }
+                };
+            }
+        }
+
+        const sessionPayload = {
             line_items,
             mode: 'payment',
             success_url: successUrl,
             cancel_url: `${YOUR_DOMAIN}/bill?canceled=true`,
-        });
+        };
+
+        if (Object.keys(paymentIntentData).length > 0) {
+            sessionPayload.payment_intent_data = paymentIntentData;
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionPayload);
 
         res.json({ url: session.url });
     } catch (error) {
@@ -1209,7 +1344,7 @@ app.post('/api/pool/checkout', async (req, res) => {
     try {
         const { poolId, amount, contributorName, itemName, userId, type } = req.body;
 
-        const session = await stripe.checkout.sessions.create({
+        const sessionPayload = {
             line_items: [{
                 price_data: {
                     currency: 'brl',
@@ -1220,15 +1355,38 @@ app.post('/api/pool/checkout', async (req, res) => {
             }],
             mode: 'payment',
             // IMPORTANT: Holds the funds instead of automatic capture
-            payment_intent_data: { capture_method: 'manual' },
-            metadata: {
-                poolId: poolId.toString(),
-                contributorName,
-                userId: userId ? userId.toString() : ''
+            payment_intent_data: {
+                capture_method: 'manual',
+                metadata: {
+                    poolId: poolId.toString(),
+                    contributorName,
+                    userId: userId ? userId.toString() : ''
+                }
             },
             success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}${userId ? `&user_id=${userId}` : ''}${type ? `&type=${type}` : ''}`,
             cancel_url: `${YOUR_DOMAIN}/pool/${poolId}?canceled=true`,
-        });
+        };
+
+        // Inject Destination Charges (Split) if pool matches a connected restaurant
+        const restQuery = await pool.query(`
+            SELECT r.stripe_account_id 
+            FROM restaurantes r
+            JOIN sessoes s ON s.id_restaurante = r.id_restaurante
+            JOIN pagamentos p ON p.id_sessao = s.id_sessao
+            WHERE p.id_pagamento = $1
+        `, [poolId]);
+
+        if (restQuery.rows.length > 0 && restQuery.rows[0].stripe_account_id) {
+            const acctId = restQuery.rows[0].stripe_account_id;
+            const feeAmount = Math.round(amount * 0.03 * 100);
+
+            sessionPayload.payment_intent_data.application_fee_amount = feeAmount;
+            sessionPayload.payment_intent_data.transfer_data = {
+                destination: acctId
+            };
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionPayload);
 
         res.json({ url: session.url });
     } catch (e) {
