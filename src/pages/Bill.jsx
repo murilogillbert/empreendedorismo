@@ -75,7 +75,7 @@ const Bill = () => {
     const subtotal = activeOrders.reduce((acc, item) =>
         acc + (parseFloat(item.finalPrice ?? item.price ?? 0) * (item.quantity ?? item.quantidade ?? 1)), 0);
     const waiterTip = subtotal * (waiterTipPercent / 100);
-    const appTax = subtotal * 0.01;
+    const appTax = subtotal * 0.03; // Taxa do app fixada em 3%
     const total = subtotal + waiterTip + appTax;
 
     const handleCreatePool = async () => {
@@ -233,18 +233,27 @@ const Bill = () => {
                                 <Typography sx={{ fontWeight: 600 }}>R$ {waiterTip.toFixed(2)}</Typography>
                             </Box>
 
-                            <Box sx={{ px: 1 }}>
-                                <Slider
+                            <Box sx={{ px: 1, mt: 1 }}>
+                                <TextField
+                                    label="Gorjeta Garçom (%)"
+                                    type="number"
+                                    fullWidth
+                                    size="small"
                                     value={waiterTipPercent}
-                                    onChange={(e, val) => setWaiterTipPercent(val)}
-                                    min={0} max={25} step={1}
-                                    valueLabelDisplay="auto"
-                                    sx={{ color: '#FF8C00' }}
+                                    onChange={(e) => {
+                                        const val = Math.max(0, parseFloat(e.target.value) || 0);
+                                        setWaiterTipPercent(val);
+                                    }}
+                                    disabled={!!pool} // Não mudar após criação/pagamento do pool
+                                    InputProps={{
+                                        endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                                    }}
+                                    helperText={!!pool ? "Gorjeta fixada após criação do pool" : ""}
                                 />
                             </Box>
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <Typography color="text.secondary">Taxa do App (1%)</Typography>
+                                <Typography color="text.secondary">Taxa do App (3%)</Typography>
                                 <Typography sx={{ fontWeight: 600 }}>R$ {appTax.toFixed(2)}</Typography>
                             </Box>
 

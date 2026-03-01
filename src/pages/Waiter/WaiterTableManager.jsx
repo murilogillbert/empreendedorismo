@@ -24,6 +24,7 @@ const WaiterTableManager = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [observations, setObservations] = useState('');
     const [submittingOrder, setSubmittingOrder] = useState(false);
+    const [waiterTipPercent, setWaiterTipPercent] = useState(10);
 
     // Função para buscar os dados da mesa (separada para podermos recarregar depois de um pedido)
     const fetchTableDetails = async () => {
@@ -223,7 +224,7 @@ const WaiterTableManager = () => {
                 {/* Account Summary */}
                 <Grid size={{ xs: 12, md: 7 }}>
                     <Card elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #E5E7EB' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Extrato Atual</Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Extrato de Pagamento</Typography>
 
                         {tableDetails.pedidos && tableDetails.pedidos.length > 0 ? (
                             <List disablePadding>
@@ -241,12 +242,60 @@ const WaiterTableManager = () => {
                                 ))}
 
                                 <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="h6" sx={{ fontWeight: 900 }}>Total Pendente</Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 900, color: '#FF8C00' }}>
-                                        R$ {parseFloat(tableDetails.total_pendente || 0).toFixed(2)}
-                                    </Typography>
-                                </Box>
+
+                                <Stack spacing={1}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Typography color="text.secondary">Subtotal Itens</Typography>
+                                        <Typography sx={{ fontWeight: 600 }}>R$ {parseFloat(tableDetails.total_itens || 0).toFixed(2)}</Typography>
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                                        <Typography color="text.secondary">Gorjeta Sugerida</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <TextField
+                                                type="number"
+                                                size="small"
+                                                variant="standard"
+                                                value={waiterTipPercent}
+                                                onChange={(e) => setWaiterTipPercent(Math.max(0, parseFloat(e.target.value) || 0))}
+                                                disabled={!!tableDetails.pool}
+                                                sx={{ width: 60, '& input': { textAlign: 'right', fontWeight: 700 } }}
+                                                InputProps={{ endAdornment: <Typography variant="caption">%</Typography> }}
+                                            />
+                                        </Box>
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Typography color="text.secondary">Taxa do App (3%)</Typography>
+                                        <Typography sx={{ fontWeight: 600 }}>R$ {(parseFloat(tableDetails.total_itens || 0) * 0.03).toFixed(2)}</Typography>
+                                    </Box>
+
+                                    <Divider sx={{ my: 2 }} />
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="h6" sx={{ fontWeight: 900 }}>Total Final</Typography>
+                                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#FF8C00' }}>
+                                            R$ {(
+                                                tableDetails.pool ? tableDetails.pool.total :
+                                                    (parseFloat(tableDetails.total_itens || 0) * (1 + (waiterTipPercent / 100) + 0.03))
+                                            ).toFixed(2)}
+                                        </Typography>
+                                    </Box>
+
+                                    {tableDetails.pool && (
+                                        <Box sx={{ mt: 2, p: 2, bgcolor: '#F0FDF4', borderRadius: 2, border: '1px solid #BBF7D0' }}>
+                                            <Typography variant="caption" sx={{ color: '#166534', fontWeight: 800, display: 'block', mb: 1 }}>STATUS DO PAGAMENTO (POOL)</Typography>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                                <Typography variant="body2">Já Pago:</Typography>
+                                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#166534' }}>R$ {tableDetails.pool.pago.toFixed(2)}</Typography>
+                                            </Box>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Typography variant="body2">Restante:</Typography>
+                                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#991B1B' }}>R$ {tableDetails.pool.restante.toFixed(2)}</Typography>
+                                            </Box>
+                                        </Box>
+                                    )}
+                                </Stack>
                             </List>
                         ) : (
                             <Typography color="text.secondary">Nenhum pedido nesta sessão ainda.</Typography>
