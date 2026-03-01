@@ -24,7 +24,7 @@ import {
     Tooltip
 } from '@mui/material';
 import { CreditCard, Users2, Copy, Share2, QrCode, LogOut, ChevronDown, Trash2, CheckCircle, Clock } from 'lucide-react';
-import { getOrders, createPool, getPoolBySession, getAllPools, removePoolItem } from '../utils/orderStore';
+import { getOrders, createPool, getPoolBySession, getAllPools, removePoolItem, startPoolCheckout } from '../utils/orderStore';
 import { getTableSession, clearTableSession } from '../utils/tableStore';
 import { getCurrentUser } from '../utils/userStore';
 import { QRCodeSVG } from 'qrcode.react';
@@ -127,26 +127,36 @@ const Bill = () => {
     const handleStripeCheckout = async () => {
         const session = getTableSession();
         const user = getCurrentUser();
+
+        if (!session) {
+            alert('Não há mesa vinculada.');
+            return;
+        }
+
+        if (activeOrders.length === 0) {
+            alert('Não há itens para pagar.');
+            return;
+        }
+
         try {
-            const totalAmount = total;
-            const data = await ky.post('http://localhost:4242/create-checkout-session', {
-                json: {
-                    items: activeOrders.map(o => ({
-                        name: o.name + (o.selectedAddons?.length ? ` (+ ${o.selectedAddons.map(a => a.name).join(', ')})` : ''),
-                        price: parseFloat(o.finalPrice ?? o.price ?? 0),
-                        quantity: o.quantity ?? o.quantidade ?? 1
-                    })),
-                    tip: waiterTip,
-                    appTax: appTax,
-                    total: totalAmount,
-                    sessionId: session?.sessionId,
-                    userId: user?.id
-                }
-            }).json();
-            window.location.href = data.url;
+            // PASSO 1: Criar uma pool com TODOS os itens atuais (Freeze)
+            const orderItemIds = activeOrders.map(o => o.orderItemId).filter(Boolean);
+            const newPool = await createPool(total, total, session.sessionId, orderItemIds);
+
+            // PASSO 2: Iniciar checkout Stripe usando essa nova pool
+            const { url } = await startPoolCheckout({
+                poolId: newPool.id,
+                amount: total,
+                contributorName: user?.nome_completo || 'Cliente Integral',
+                itemName: `Pagamento Integral Mesa ${session.tableIdentifier}`,
+                userId: user?.id,
+                type: 'direct' // Indica para o Success.jsx o redirecionamento
+            });
+
+            window.location.href = url;
         } catch (err) {
             console.error("Stripe Checkout Error:", err);
-            alert(`Erro no pagamento: ${err.message}. Verifique se o servidor backend está rodando.`);
+            alert(`Erro no pagamento: ${err.message}.`);
         }
     };
 

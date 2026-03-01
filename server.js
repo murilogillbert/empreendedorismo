@@ -971,7 +971,7 @@ app.delete('/api/pool/:poolId/item/:orderItemId', async (req, res) => {
 // POST /api/pool/checkout
 app.post('/api/pool/checkout', async (req, res) => {
     try {
-        const { poolId, amount, contributorName, itemName, userId } = req.body;
+        const { poolId, amount, contributorName, itemName, userId, type } = req.body;
 
         const session = await stripe.checkout.sessions.create({
             line_items: [{
@@ -990,7 +990,7 @@ app.post('/api/pool/checkout', async (req, res) => {
                 contributorName,
                 userId: userId ? userId.toString() : ''
             },
-            success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}${userId ? `&user_id=${userId}` : ''}`,
+            success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}${userId ? `&user_id=${userId}` : ''}${type ? `&type=${type}` : ''}`,
             cancel_url: `${YOUR_DOMAIN}/pool/${poolId}?canceled=true`,
         });
 
