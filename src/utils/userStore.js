@@ -1,7 +1,6 @@
 const USER_KEY = 'restaurant_user_v1';
 
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4242').replace(/\/$/, '');
-const API_URL = `${BASE_URL}/api`;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
 
 export const getCurrentUser = () => {
     const saved = localStorage.getItem(USER_KEY);
@@ -30,7 +29,7 @@ export const logoutUser = () => {
 
 export const registerUser = async (userData) => {
     try {
-        const response = await fetch(`${API_URL}/auth/register`, {
+        const response = await fetch(`${API_URL}/api/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -53,7 +52,7 @@ export const registerUser = async (userData) => {
 
 export const loginUser = async (credentials) => {
     try {
-        const response = await fetch(`${API_URL}/auth/login`, {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -77,7 +76,7 @@ export const loginUser = async (credentials) => {
 export const getOrderHistory = async (userId) => {
     if (!userId) return [];
     try {
-        const response = await fetch(`${API_URL}/user/${userId}/history`);
+        const response = await fetch(`${API_URL}/api/user/${userId}/history`);
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         return data;
@@ -89,7 +88,7 @@ export const getOrderHistory = async (userId) => {
 
 export const fetchSessionDetails = async (sessionId) => {
     try {
-        const response = await fetch(`${API_URL}/session/${sessionId}/details`);
+        const response = await fetch(`${API_URL}/api/session/${sessionId}/details`);
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         return data;
