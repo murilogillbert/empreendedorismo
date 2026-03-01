@@ -21,7 +21,9 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
-    Tooltip
+    Tooltip,
+    Checkbox,
+    FormControlLabel
 } from '@mui/material';
 import { CreditCard, Users2, Copy, Share2, QrCode, LogOut, ChevronDown, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { getOrders, createPool, getPoolBySession, getAllPools, removePoolItem, startPoolCheckout } from '../utils/orderStore';
@@ -39,6 +41,8 @@ const Bill = () => {
     const [allPools, setAllPools] = useState([]);    // histórico de todas as pools
     const [openSnackbar, setOpenSnackbar] = useState(false);
     const [snackMsg, setSnackMsg] = useState('');
+    const [selectedItemIds, setSelectedItemIds] = useState([]); // IDs dos itens selecionados para a próxima pool/pagamento
+    const [isFirstLoad, setIsFirstLoad] = useState(true);
 
     // IDs dos itens que já estão em pools CAPTURADO (pagas) — excluídos da conta
     const paidItemIds = allPools
@@ -59,25 +63,74 @@ const Bill = () => {
             setOrders(allOrders);
             setPool(existingPool);
             setAllPools(poolHistory);
+
+            // Sincronizar selectedItemIds com a pool ativa se ela existir
+            if (existingPool) {
+                setSelectedItemIds(existingPool.items?.map(i => i.orderItemId) || []);
+            } else if (isFirstLoad && allOrders.length > 0) {
+                // Seleção padrão: todos os itens ativos (que não foram pagos)
+                const activeIds = allOrders
+                    .filter(o => o.status !== 'Cancelado' && !paidItemIds.includes(o.orderItemId))
+                    .map(o => o.orderItemId);
+                if (activeIds.length > 0) {
+                    setSelectedItemIds(activeIds);
+                    setIsFirstLoad(false);
+                }
+            }
         };
 
         fetchData();
 
         const intervalId = setInterval(fetchData, 15000);
         return () => clearInterval(intervalId);
-    }, []);
+    }, [isFirstLoad, paidItemIds.length]);
 
-    // Itens ativos: excluir Cancelado e itens já pagos por pools CAPTURADAS
+    // Itens ativos: excluir Cancelados e já pagos
     const activeOrders = orders.filter(o =>
         o.status !== 'Cancelado' &&
         !paidItemIds.includes(o.orderItemId)
     );
 
-    const subtotal = activeOrders.reduce((acc, item) =>
+    // Itens selecionados para a Pool/Pagamento atual
+    const selectedOrders = activeOrders.filter(o => selectedItemIds.includes(o.orderItemId));
+
+    const subtotal = selectedOrders.reduce((acc, item) =>
         acc + (parseFloat(item.finalPrice ?? item.price ?? 0) * (item.quantity ?? item.quantidade ?? 1)), 0);
     const waiterTip = subtotal * (waiterTipPercent / 100);
     const appTax = subtotal * 0.03; // Taxa do app fixada em 3%
     const total = subtotal + waiterTip + appTax;
+
+    const handleToggleItemSelection = async (itemId) => {
+        if (!pool) {
+            // Seleção local apenas
+            setSelectedItemIds(prev =>
+                prev.includes(itemId)
+                    ? prev.filter(id => id !== itemId)
+                    : [...prev, itemId]
+            );
+        } else {
+            // Sincronizar com pool do backend em tempo real
+            try {
+                if (selectedItemIds.includes(itemId)) {
+                    await removePoolItem(pool.id, itemId);
+                } else {
+                    const session = getTableSession();
+                    // Adicionamos o item à pool existente chamando createPool (o backend trata o vínculo se já houver PENDENTE)
+                    await createPool(0, 0, session.sessionId, [itemId]);
+                }
+                // Refresh data
+                const session = getTableSession();
+                const [updatedPool, updatedHistory] = await Promise.all([
+                    getPoolBySession(session.sessionId),
+                    getAllPools(session.sessionId)
+                ]);
+                setPool(updatedPool);
+                setAllPools(updatedHistory);
+            } catch (e) {
+                alert('Erro ao atualizar pool: ' + e.message);
+            }
+        }
+    };
 
     const handleCreatePool = async () => {
         const payAmount = parseFloat(myPayment) || 0;
@@ -91,8 +144,12 @@ const Bill = () => {
             return;
         }
         try {
-            // Passar os IDs dos itens ativos para vincular à pool
-            const orderItemIds = activeOrders.map(o => o.orderItemId).filter(Boolean);
+            // Passar os IDs dos itens SELECIONADOS para vincular à pool
+            const orderItemIds = selectedItemIds.filter(Boolean);
+            if (orderItemIds.length === 0) {
+                alert('Selecione pelo menos um item para criar a pool.');
+                return;
+            }
             const newPool = await createPool(total, payAmount, session.sessionId, orderItemIds);
             setPool(newPool);
             // Atualizar histórico de pools
@@ -133,14 +190,14 @@ const Bill = () => {
             return;
         }
 
-        if (activeOrders.length === 0) {
-            alert('Não há itens para pagar.');
+        if (selectedOrders.length === 0) {
+            alert('Não há itens selecionados para pagar.');
             return;
         }
 
         try {
-            // PASSO 1: Criar uma pool com TODOS os itens atuais (Freeze)
-            const orderItemIds = activeOrders.map(o => o.orderItemId).filter(Boolean);
+            // PASSO 1: Criar uma pool com os itens SELECIONADOS (Freeze)
+            const orderItemIds = selectedItemIds.filter(Boolean);
             const newPool = await createPool(total, total, session.sessionId, orderItemIds);
 
             // PASSO 2: Iniciar checkout Stripe usando essa nova pool
@@ -210,7 +267,12 @@ const Bill = () => {
                     <List disablePadding>
                         {activeOrders.map((item, index) => (
                             <React.Fragment key={item.orderItemId ?? index}>
-                                <ListItem sx={{ px: 0, py: 1.5, alignItems: 'flex-start' }}>
+                                <ListItem sx={{ px: 0, py: 1.5, alignItems: 'center' }}>
+                                    <Checkbox
+                                        checked={selectedItemIds.includes(item.orderItemId)}
+                                        onChange={() => handleToggleItemSelection(item.orderItemId)}
+                                        sx={{ color: '#FF8C00', '&.Mui-checked': { color: '#FF8C00' }, mr: 1 }}
+                                    />
                                     <ListItemText
                                         primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity ?? item.quantidade ?? 1}x {item.name}</Typography>}
                                         secondaryTypographyProps={{ component: 'div' }}
