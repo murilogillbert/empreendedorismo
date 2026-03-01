@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Stack } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 
 const categories = [
     { id: 'all', name: 'Todos', emoji: '🍽️' },
@@ -11,16 +11,19 @@ const categories = [
 
 const CategoryBar = ({ activeCategory, onCategoryChange }) => {
     return (
-        <Box sx={{
-            overflowX: 'auto',
-            whiteSpace: 'nowrap',
-            mb: 3,
-            py: 0.5,
-            '&::-webkit-scrollbar': { display: 'none' },
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none',
-        }}>
-            <Stack direction="row" spacing={1}>
+        <Box
+            className="no-scrollbar"
+            sx={{
+                overflowX: 'auto',
+                whiteSpace: 'nowrap',
+                mb: { xs: 3, md: 4 },
+                py: 1,
+                userSelect: 'none',
+                mx: -2, // Bleed out to container edges
+                px: 2,
+            }}
+        >
+            <Stack direction="row" spacing={1.5}>
                 {categories.map((cat) => {
                     const isActive = activeCategory === cat.id;
                     return (
@@ -30,29 +33,28 @@ const CategoryBar = ({ activeCategory, onCategoryChange }) => {
                             sx={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: 0.6,
-                                px: 2,
-                                py: 1,
-                                borderRadius: 3,
+                                gap: 1,
+                                px: 2.5,
+                                py: 1.2,
+                                borderRadius: '14px',
                                 cursor: 'pointer',
-                                fontWeight: 700,
-                                fontSize: '0.85rem',
-                                whiteSpace: 'nowrap',
-                                userSelect: 'none',
-                                transition: 'all 0.2s ease',
-                                bgcolor: isActive ? '#FF8C00' : '#F5F5F5',
-                                color: isActive ? '#FFFFFF' : '#666666',
-                                boxShadow: isActive ? '0 4px 12px rgba(255,140,0,0.3)' : 'none',
-                                transform: isActive ? 'translateY(-1px)' : 'translateY(0)',
+                                fontWeight: 800,
+                                fontSize: '0.9rem',
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                bgcolor: isActive ? 'var(--primary)' : 'var(--card-bg)',
+                                color: isActive ? '#FFFFFF' : 'var(--text-muted)',
+                                border: '1px solid',
+                                borderColor: isActive ? 'var(--primary)' : 'var(--border-color)',
+                                boxShadow: isActive ? '0 8px 16px rgba(255,140,0,0.25)' : 'none',
+                                transform: isActive ? 'scale(1.05)' : 'scale(1)',
                                 '&:hover': {
-                                    bgcolor: isActive ? '#E67E00' : '#EBEBEB',
-                                    transform: 'translateY(-1px)',
-                                },
-                                fontFamily: 'inherit',
+                                    bgcolor: isActive ? 'var(--primary-hover)' : '#EEEEEE',
+                                    transform: isActive ? 'scale(1.05)' : 'translateY(-2px)',
+                                }
                             }}
                         >
-                            <span style={{ fontSize: '1rem' }}>{cat.emoji}</span>
-                            {cat.name}
+                            <span style={{ fontSize: '1.2rem' }}>{cat.emoji}</span>
+                            <Typography sx={{ fontWeight: 800, fontSize: 'inherit' }}>{cat.name}</Typography>
                         </Box>
                     );
                 })}

@@ -77,58 +77,111 @@ const MainLayout = () => {
     };
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#FFFFFF' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'var(--bg-color)' }}>
             {/* Header */}
-            <AppBar position="sticky" elevation={0} sx={{ bgcolor: '#FFFFFF', borderBottom: '1px solid #EEEEEE' }}>
-                <Toolbar sx={{ justifyContent: 'space-between' }}>
-                    <Typography variant="h6" component="div" sx={{ fontWeight: 900, color: '#1A1A1A', cursor: 'pointer' }} onClick={() => navigate('/menu')}>
-                        RESTAURANTE <Box component="span" sx={{ color: '#FF8C00' }}>APP</Box>
+            <AppBar
+                position="sticky"
+                elevation={0}
+                sx={{
+                    bgcolor: 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(10px)',
+                    borderBottom: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
+                    zIndex: 1100
+                }}
+            >
+                <Toolbar sx={{ justifyContent: 'space-between', height: 70 }}>
+                    <Typography
+                        variant="h6"
+                        component="div"
+                        sx={{
+                            fontWeight: 900,
+                            color: 'var(--text-main)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            letterSpacing: -0.5
+                        }}
+                        onClick={() => navigate('/menu')}
+                    >
+                        RESTO <Box component="span" sx={{ color: 'var(--primary)' }}>APP</Box>
                     </Typography>
 
                     {tableSession ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Box sx={{ bgcolor: '#FFF5E6', px: 2, py: 0.5, borderRadius: 2, border: '1px solid #FFE0B2' }}>
-                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#FF8C00' }}>
-                                    MESA {tableSession.tableCode}
+                            <Box sx={{
+                                bgcolor: '#FFF5E6',
+                                px: 2,
+                                py: 0.7,
+                                borderRadius: '12px',
+                                border: '1px solid #FFE0B2',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1
+                            }}>
+                                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'var(--primary)', animation: 'pulse 2s infinite' }} />
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    Mesa {tableSession.tableCode}
                                 </Typography>
                             </Box>
-                            <IconButton size="small" onClick={handleLeaveTable} color="error">
+                            <IconButton
+                                size="small"
+                                onClick={handleLeaveTable}
+                                sx={{ color: '#FF5252', bgcolor: '#FFF0F0', '&:hover': { bgcolor: '#FFDADA' } }}
+                            >
                                 <LogOut size={18} />
                             </IconButton>
                         </Box>
                     ) : (
                         <Button
-                            variant="outlined"
+                            variant="contained"
                             size="small"
+                            disableElevation
                             startIcon={<ScanLine size={16} />}
                             onClick={() => setOpenModal(true)}
                             sx={{
-                                borderColor: '#FF8C00',
-                                color: '#FF8C00',
-                                fontWeight: 700,
-                                borderRadius: 2,
-                                '&:hover': { borderColor: '#E67E00', bgcolor: '#FFF5E6' }
+                                bgcolor: 'var(--primary)',
+                                color: '#FFFFFF',
+                                fontWeight: 800,
+                                borderRadius: '12px',
+                                px: 2,
+                                py: 1,
+                                '&:hover': { bgcolor: 'var(--primary-hover)' }
                             }}
                         >
-                            Vincular Mesa
+                            Mesa
                         </Button>
                     )}
                 </Toolbar>
             </AppBar>
 
             {/* Modal de Mesa */}
-            <Dialog open={openModal} onClose={() => setOpenModal(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
-                <DialogTitle sx={{ fontWeight: 800, textAlign: 'center' }}>Vincular Mesa</DialogTitle>
+            <Dialog
+                open={openModal}
+                onClose={() => setOpenModal(false)}
+                maxWidth="xs"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: '24px',
+                        p: 1
+                    }
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 900, textAlign: 'center', pt: 3, fontSize: '1.5rem' }}>
+                    Sua Mesa
+                </DialogTitle>
                 <DialogContent>
-                    <Box sx={{ textAlign: 'center', mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                            Digite o código da mesa ou aponte a câmera para o QR Code (Em breve).
+                    <Box sx={{ textAlign: 'center', mb: 3 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                            Identifique-se informando o código da sua mesa.
                         </Typography>
                     </Box>
                     <TextField
                         autoFocus
                         margin="dense"
-                        label="Código da Mesa (ex: MESA-01)"
+                        placeholder="Ex: MESA-01"
                         type="text"
                         fullWidth
                         variant="outlined"
@@ -136,23 +189,55 @@ const MainLayout = () => {
                         onChange={(e) => setTableCode(e.target.value)}
                         error={!!errorMsg}
                         helperText={errorMsg}
+                        InputProps={{
+                            sx: { borderRadius: '16px', fontWeight: 700 }
+                        }}
                     />
                 </DialogContent>
-                <DialogActions sx={{ p: 2, pt: 0, justifyContent: 'center' }}>
-                    <Button onClick={() => setOpenModal(false)} color="inherit">Cancelar</Button>
-                    <Button onClick={handleJoinTable} variant="contained" sx={{ bgcolor: '#FF8C00', fontWeight: 700, '&:hover': { bgcolor: '#E67E00' } }}>
+                <DialogActions sx={{ p: 3, pt: 1, flexDirection: 'column', gap: 1 }}>
+                    <Button
+                        onClick={handleJoinTable}
+                        variant="contained"
+                        fullWidth
+                        sx={{
+                            bgcolor: 'var(--primary)',
+                            fontWeight: 800,
+                            borderRadius: '16px',
+                            py: 1.5,
+                            fontSize: '1rem',
+                            '&:hover': { bgcolor: 'var(--primary-hover)' }
+                        }}
+                    >
                         Confirmar
+                    </Button>
+                    <Button onClick={() => setOpenModal(false)} color="inherit" fullWidth sx={{ fontWeight: 700 }}>
+                        Cancelar
                     </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Main Content */}
-            <Container component="main" maxWidth="sm" sx={{ flexGrow: 1, py: 3, pb: 10 }}>
+            <Container component="main" maxWidth="md" sx={{ flexGrow: 1, py: { xs: 3, md: 5 }, pb: 12 }}>
                 <Outlet />
             </Container>
 
             {/* Footer Navigation */}
-            <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000 }} elevation={3}>
+            <Paper
+                sx={{
+                    position: 'fixed',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 1000,
+                    bgcolor: 'transparent',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pb: 2,
+                    px: 2,
+                    pointerEvents: 'none'
+                }}
+                elevation={0}
+            >
                 <BottomNavigation
                     showLabels
                     value={activeValue >= 0 ? activeValue : 0}
@@ -160,15 +245,25 @@ const MainLayout = () => {
                         navigate(navItems[newValue].path);
                     }}
                     sx={{
-                        height: 70,
-                        '& .Mui-selected': {
-                            color: '#FF8C00 !important',
-                            '& .MuiBottomNavigationAction-label': {
-                                fontWeight: 700,
-                            }
-                        },
+                        height: 75,
+                        width: '100%',
+                        maxWidth: 500,
+                        borderRadius: '24px',
+                        bgcolor: 'rgba(26, 26, 26, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                        pointerEvents: 'auto',
                         '& .MuiBottomNavigationAction-root': {
-                            color: '#757575',
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            transition: 'all 0.2s',
+                            minWidth: 'auto'
+                        },
+                        '& .Mui-selected': {
+                            color: 'var(--primary) !important',
+                            '& .MuiBottomNavigationAction-label': {
+                                fontWeight: 800,
+                                fontSize: '0.75rem'
+                            },
                         }
                     }}
                 >
@@ -181,7 +276,18 @@ const MainLayout = () => {
                     ))}
                 </BottomNavigation>
             </Paper>
+
+            <style>
+                {`
+                    @keyframes pulse {
+                        0% { transform: scale(0.95); opacity: 0.5; }
+                        50% { transform: scale(1.05); opacity: 1; }
+                        100% { transform: scale(0.95); opacity: 0.5; }
+                    }
+                `}
+            </style>
         </Box>
+
     );
 };
 
