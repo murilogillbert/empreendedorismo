@@ -1238,9 +1238,14 @@ app.get('/api/waiter/tables/:tableId', async (req, res) => {
 
         const sessionId = sessionRes.rows[0].id_sessao;
 
-        // Buscar pedidos
+        // Buscar pedidos (incluindo se já estão pagos)
         const ordersQuery = `
-            SELECT pi.quantidade, pi.final_price as valor_total, p.status, ci.nome as nome_item
+            SELECT pi.id_pedido_item, pi.quantidade, pi.final_price as valor_total, p.status, ci.nome as nome_item,
+                   EXISTS (
+                       SELECT 1 FROM pool_itens pli
+                       JOIN pagamentos pag ON pli.id_pagamento = pag.id_pagamento
+                       WHERE pli.id_pedido_item = pi.id_pedido_item AND pag.status = 'CAPTURADO'
+                   ) as is_paid
             FROM pedidos p
             JOIN pedidos_itens pi ON p.id_pedido = pi.id_pedido
             JOIN cardapio_itens ci ON pi.id_item = ci.id_item
@@ -1248,6 +1253,11 @@ app.get('/api/waiter/tables/:tableId', async (req, res) => {
             ORDER BY p.criado_em DESC
         `;
         const ordersRes = await pool.query(ordersQuery, [sessionId]);
+
+        // Filtrar o total pendente (apenas itens não pagos)
+        const totalPendente = ordersRes.rows
+            .filter(r => !r.is_paid && r.status !== 'Cancelado')
+            .reduce((acc, curr) => acc + (parseFloat(curr.valor_total) * curr.quantidade), 0);
 
         // Buscar detalhes da pool se existir
         const poolCheckRes = await pool.query(
@@ -1274,7 +1284,7 @@ app.get('/api/waiter/tables/:tableId', async (req, res) => {
             status: 'ABERTA',
             sessao_id: sessionId,
             pedidos: ordersRes.rows,
-            total_itens: ordersRes.rows.reduce((acc, curr) => acc + parseFloat(curr.valor_total) * curr.quantidade, 0),
+            total_itens: totalPendente,
             pool: pool_info
         });
     } catch (e) {
@@ -1318,7 +1328,47 @@ app.post('/api/waiter/tables/:tableId/open', async (req, res) => {
     }
 });
 
-// --- CRON JOBS & AUTOMATION ---
+// POST /api/waiter/payment/confirm - Garçom confirma pagamento (Cartão na maquininha ou dinheiro)
+app.post('/api/waiter/payment/confirm', async (req, res) => {
+    const { sessionId, orderItemIds, totalAmount, waiterTip, contributorName } = req.body;
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Criar a pool (pagamento)
+        const poolRes = await client.query(
+            "INSERT INTO pagamentos (id_sessao, valor_total, status, metodo) VALUES ($1, $2, 'CAPTURADO', 'WAITER_DIRECT') RETURNING id_pagamento",
+            [sessionId, totalAmount]
+        );
+        const poolId = poolRes.rows[0].id_pagamento;
+
+        // 2. Vincular os itens à pool
+        if (orderItemIds && orderItemIds.length > 0) {
+            for (const itemId of orderItemIds) {
+                await client.query(
+                    'INSERT INTO pool_itens (id_pagamento, id_pedido_item) VALUES ($1, $2) ON CONFLICT (id_pedido_item) DO UPDATE SET id_pagamento = $1',
+                    [poolId, itemId]
+                );
+            }
+        }
+
+        // 3. Registrar a contribuição (integral neste caso)
+        await client.query(
+            "INSERT INTO pagamentos_divisoes (id_pagamento, nome_contribuinte, valor, status) VALUES ($1, $2, $3, 'CAPTURADO')",
+            [poolId, contributorName || 'Pagamento Garçom', totalAmount]
+        );
+
+        await client.query('COMMIT');
+        res.json({ success: true, poolId });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('Error confirming waiter payment:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
 // Roda a cada 10 minutos para limpar mesas se tiver passado do horario de fechamento + 30m
 setInterval(async () => {
     try {
