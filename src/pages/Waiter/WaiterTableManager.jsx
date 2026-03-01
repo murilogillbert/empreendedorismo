@@ -6,6 +6,7 @@ import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconBu
 import { Camera, ArrowLeft, ShoppingBag, X, Search, Play } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import ky from 'ky';
+import ItemDetailsModal from '../../components/ItemDetailsModal';
 
 const WaiterTableManager = () => {
     const { tableId } = useParams();
@@ -25,6 +26,7 @@ const WaiterTableManager = () => {
     const [observations, setObservations] = useState('');
     const [submittingOrder, setSubmittingOrder] = useState(false);
     const [waiterTipPercent, setWaiterTipPercent] = useState(10);
+    const [detailsModalOpen, setDetailsModalOpen] = useState(false);
 
     // Função para buscar os dados da mesa (separada para podermos recarregar depois de um pedido)
     const fetchTableDetails = async () => {
@@ -58,26 +60,30 @@ const WaiterTableManager = () => {
 
     const handleSelectMenuItem = (item) => {
         setSelectedItem(item);
-        setObservations(''); // Limpa as observações antigas
+        setDetailsModalOpen(true);
     };
 
-    const handleConfirmOrder = async () => {
-        if (!selectedItem || !tableDetails?.sessao_id) return;
+    const handleConfirmOrder = async (item, addons, observationText, quantity) => {
+        if (!item || !tableDetails?.sessao_id) return;
 
         setSubmittingOrder(true);
         try {
-            await ky.post('http://localhost:4242/api/orders', {
-                json: {
-                    item: selectedItem,
-                    selectedAddons: [], // Para manter simples no terminal do garçom por enquanto
-                    observations: observations,
-                    sessionId: tableDetails.sessao_id
-                }
-            }).json();
+            // Replicando a lógica do Menu.jsx: loop para quantidade
+            for (let i = 0; i < quantity; i++) {
+                await ky.post('http://localhost:4242/api/orders', {
+                    json: {
+                        item: item,
+                        selectedAddons: addons,
+                        observations: observationText,
+                        sessionId: tableDetails.sessao_id
+                    }
+                }).json();
+            }
 
-            // Sucesso! Limpa o estado e recarrega a mesa
-            setSelectedItem(null);
+            // Sucesso!
             setMenuOpen(false);
+            setDetailsModalOpen(false);
+            setSelectedItem(null);
             await fetchTableDetails();
 
         } catch (err) {
@@ -322,79 +328,47 @@ const WaiterTableManager = () => {
                 </Grid>
             </Grid>
 
-            {/* --- MODAL DE LANÇAMENTO DE PEDIDO --- */}
+            {/* --- MODAL DE SELEÇÃO DE ITEM DO CARDÁPIO --- */}
             <Dialog
                 open={menuOpen}
-                onClose={() => { setMenuOpen(false); setSelectedItem(null); }}
+                onClose={() => setMenuOpen(false)}
                 fullWidth
                 maxWidth="sm"
             >
-                {!selectedItem ? (
-                    <>
-                        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Cardápio</DialogTitle>
-                        <DialogContent dividers sx={{ p: 0 }}>
-                            <List disablePadding>
-                                {menuItems.map((item) => (
-                                    <ListItemButton key={item.id} onClick={() => handleSelectMenuItem(item)} sx={{ p: 2, borderBottom: '1px solid #f0f0f0' }}>
-                                        <ListItemAvatar>
-                                            <Avatar src={item.image} variant="rounded" sx={{ width: 56, height: 56, mr: 2 }} />
-                                        </ListItemAvatar>
-                                        <ListItemText
-                                            primary={<Typography sx={{ fontWeight: 700 }}>{item.name}</Typography>}
-                                            secondary={<Typography variant="body2" color="text.secondary" noWrap>{item.description}</Typography>}
-                                        />
-                                        <Typography sx={{ fontWeight: 800, color: '#FF8C00' }}>R$ {item.price.toFixed(2)}</Typography>
-                                    </ListItemButton>
-                                ))}
-                                {menuItems.length === 0 && (
-                                    <Box sx={{ p: 4, textAlign: 'center' }}>
-                                        <CircularProgress size={24} />
-                                    </Box>
-                                )}
-                            </List>
-                        </DialogContent>
-                        <DialogActions sx={{ p: 2 }}>
-                            <Button onClick={() => setMenuOpen(false)} sx={{ color: '#757575' }}>Cancelar</Button>
-                        </DialogActions>
-                    </>
-                ) : (
-                    <>
-                        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <IconButton size="small" onClick={() => setSelectedItem(null)}><ArrowLeft size={20} /></IconButton>
-                            Detalhes do Pedido
-                        </DialogTitle>
-                        <DialogContent dividers>
-                            <Box sx={{ textAlign: 'center', mb: 3 }}>
-                                <Avatar src={selectedItem.image} variant="rounded" sx={{ width: 100, height: 100, mx: 'auto', mb: 2 }} />
-                                <Typography variant="h6" sx={{ fontWeight: 800 }}>{selectedItem.name}</Typography>
-                                <Typography variant="h6" sx={{ color: '#FF8C00', fontWeight: 900 }}>R$ {selectedItem.price.toFixed(2)}</Typography>
+                <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Cardápio</DialogTitle>
+                <DialogContent dividers sx={{ p: 0 }}>
+                    <List disablePadding>
+                        {menuItems.map((item) => (
+                            <ListItemButton key={item.id} onClick={() => handleSelectMenuItem(item)} sx={{ p: 2, borderBottom: '1px solid #f0f0f0' }}>
+                                <ListItemAvatar>
+                                    <Avatar src={item.image} variant="rounded" sx={{ width: 56, height: 56, mr: 2 }} />
+                                </ListItemAvatar>
+                                <ListItemText
+                                    primary={<Typography sx={{ fontWeight: 700 }}>{item.name}</Typography>}
+                                    secondary={<Typography variant="body2" color="text.secondary" noWrap>{item.description}</Typography>}
+                                />
+                                <Typography sx={{ fontWeight: 800, color: '#FF8C00' }}>R$ {item.price.toFixed(2)}</Typography>
+                            </ListItemButton>
+                        ))}
+                        {menuItems.length === 0 && (
+                            <Box sx={{ p: 4, textAlign: 'center' }}>
+                                <CircularProgress size={24} />
                             </Box>
-
-                            <TextField
-                                label="Observações (Opcional)"
-                                placeholder="Ex: Sem cebola, ponto da carne..."
-                                fullWidth
-                                multiline
-                                rows={3}
-                                value={observations}
-                                onChange={(e) => setObservations(e.target.value)}
-                                sx={{ mb: 2 }}
-                            />
-                        </DialogContent>
-                        <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
-                            <Button onClick={() => setSelectedItem(null)} sx={{ color: '#757575' }}>Voltar</Button>
-                            <Button
-                                variant="contained"
-                                disabled={submittingOrder}
-                                onClick={handleConfirmOrder}
-                                sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#E67E00' }, fontWeight: 700, px: 4 }}
-                            >
-                                {submittingOrder ? <CircularProgress size={24} color="inherit" /> : 'Confirmar Pedido'}
-                            </Button>
-                        </DialogActions>
-                    </>
-                )}
+                        )}
+                    </List>
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                    <Button onClick={() => setMenuOpen(false)} sx={{ color: '#757575' }}>Cancelar</Button>
+                </DialogActions>
             </Dialog>
+
+            {/* Modal de Detalhes Completo - O mesmo do Cliente */}
+            <ItemDetailsModal
+                open={detailsModalOpen}
+                onClose={() => setDetailsModalOpen(false)}
+                item={selectedItem}
+                onAdd={handleConfirmOrder}
+            />
         </Box>
     );
 };
