@@ -209,7 +209,7 @@ const WaiterTableManager = () => {
 
             <Grid container spacing={4}>
                 {/* General Info / Actions */}
-                <Grid item xs={12} md={5}>
+                <Grid size={{ xs: 12, md: 5 }}>
                     <Card elevation={0} sx={{ p: 3, borderRadius: 4, mb: 3, border: '1px solid #E5E7EB' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>Ações Rápidas</Typography>
 
@@ -289,7 +289,7 @@ const WaiterTableManager = () => {
                 </Grid>
 
                 {/* Account Summary */}
-                <Grid item xs={12} md={7}>
+                <Grid size={{ xs: 12, md: 7 }}>
                     <Card elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #E5E7EB' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Extrato de Pagamento</Typography>
 
@@ -482,7 +482,7 @@ const WaiterTableManager = () => {
                             onChange={(e) => setCardData({ ...cardData, name: e.target.value })}
                         />
                         <Grid container spacing={2}>
-                            <Grid item xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <TextField
                                     label="Validade"
                                     fullWidth
@@ -495,7 +495,7 @@ const WaiterTableManager = () => {
                                     placeholder="MM/AA"
                                 />
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <TextField
                                     label="CVC"
                                     fullWidth

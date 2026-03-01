@@ -186,59 +186,79 @@ const Management = () => {
 
     return (
         <Box sx={{ p: 4, bgcolor: '#FDFDFD', minHeight: '100vh', pb: 10 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-                <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 900 }}>Management Dashboard</Typography>
-                    <Typography variant="body2" color="text.secondary">Seja bem-vindo, Administrador.</Typography>
+            <Stack spacing={3} sx={{ mb: 4 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box>
+                        <Typography variant="h4" sx={{ fontWeight: 900 }}>Management Dashboard</Typography>
+                        <Typography variant="body2" color="text.secondary">Seja bem-vindo, Administrador.</Typography>
+                    </Box>
+                    <Button
+                        startIcon={<ArrowLeft />}
+                        onClick={() => navigate('/admin')}
+                        sx={{ fontWeight: 700 }}
+                    >
+                        Painel Admin
+                    </Button>
                 </Box>
-                <Stack direction="row" spacing={1}>
+
+                <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 1, '&::-webkit-scrollbar': { display: 'none' } }}>
                     {['1d', '1w', '1m', '3m', '6m', '1y'].map((p) => (
                         <Button
                             key={p}
                             size="small"
                             variant={period === p ? 'contained' : 'outlined'}
                             onClick={() => setPeriod(p)}
-                            sx={{ minWidth: 40, fontWeight: 700 }}
+                            sx={{
+                                minWidth: 48,
+                                borderRadius: 2,
+                                fontWeight: 700,
+                                bgcolor: period === p ? '#FF8C00' : 'transparent',
+                                borderColor: period === p ? '#FF8C00' : '#DDD',
+                                color: period === p ? 'white' : 'text.primary',
+                                '&:hover': {
+                                    bgcolor: period === p ? '#E67E00' : '#F5F5F5',
+                                    borderColor: period === p ? '#E67E00' : '#CCC'
+                                }
+                            }}
                         >
                             {p.toUpperCase()}
                         </Button>
                     ))}
-                    <Button startIcon={<ArrowLeft />} onClick={() => navigate('/admin')}>Painel Admin</Button>
                 </Stack>
             </Stack>
 
             <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid xs={12} sm={4} md={2}>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
                     <Card sx={{ p: 2, borderRadius: 4, bgcolor: '#1A1A1A', color: 'white', minHeight: 110 }}>
                         <Typography variant="caption" sx={{ opacity: 0.7, display: 'block' }}>Receita</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 900 }}>R$ {totalRevenue.toFixed(2)}</Typography>
                     </Card>
                 </Grid>
-                <Grid xs={12} sm={4} md={2}>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
                     <Card sx={{ p: 2, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 110 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Pedidos</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 900 }}>{totalOrders}</Typography>
                     </Card>
                 </Grid>
-                <Grid xs={12} sm={4} md={2}>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
                     <Card sx={{ p: 2, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 110 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Mesas Livres</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 900 }}>{metrics?.tables?.empty || 0}/{metrics?.tables?.total || 0}</Typography>
                     </Card>
                 </Grid>
-                <Grid xs={12} sm={4} md={2}>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
                     <Card sx={{ p: 2, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 110 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Produção Ø</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 900 }}>{metrics?.performance?.avgProduction || 0}m</Typography>
                     </Card>
                 </Grid>
-                <Grid xs={12} sm={4} md={2}>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
                     <Card sx={{ p: 2, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 110 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Entrega Ø</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 900 }}>{metrics?.performance?.avgDelivery || 0}m</Typography>
                     </Card>
                 </Grid>
-                <Grid xs={12} sm={4} md={2}>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
                     <Card sx={{ p: 2, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 110 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Abandono</Typography>
                         <Typography variant="h5" sx={{ fontWeight: 900, color: '#D32F2F' }}>{metrics?.abandonment || 0}</Typography>
@@ -256,12 +276,12 @@ const Management = () => {
 
             {tab === 0 && (
                 <Grid container spacing={3}>
-                    <Grid xs={12} md={8}>
+                    <Grid size={{ xs: 12, md: 8 }}>
                         <Card sx={{ p: 3, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 400 }}>
                             <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Evolução de Receita (R$)</Typography>
-                            <Box sx={{ height: 300, width: '100%' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={metrics?.revenueEvolution || []}>
+                            <Box sx={{ height: 300, width: '100%', minWidth: 0 }}>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart data={metrics?.revenueEvolution || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                         <XAxis dataKey="date" axisLine={false} tickLine={false} />
                                         <YAxis axisLine={false} tickLine={false} />
@@ -272,12 +292,12 @@ const Management = () => {
                             </Box>
                         </Card>
                     </Grid>
-                    <Grid xs={12} md={4}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <Card sx={{ p: 3, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 400 }}>
                             <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Horários de Pico (Pedidos)</Typography>
-                            <Box sx={{ height: 300, width: '100%', display: 'flex', justifyContent: 'center' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={metrics?.peakHours || []} layout="vertical">
+                            <Box sx={{ height: 300, width: '100%', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart data={metrics?.peakHours || []} layout="vertical" margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                                         <XAxis type="number" hide />
                                         <YAxis dataKey="hour" type="category" axisLine={false} tickLine={false} width={40} />
@@ -402,7 +422,7 @@ const Management = () => {
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         />
                         <Grid container spacing={2}>
-                            <Grid xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <TextField
                                     label="Preço (R$)"
                                     type="number"
@@ -411,7 +431,7 @@ const Management = () => {
                                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
                                 />
                             </Grid>
-                            <Grid xs={6}>
+                            <Grid size={{ xs: 6 }}>
                                 <TextField
                                     select
                                     label="Categoria"
