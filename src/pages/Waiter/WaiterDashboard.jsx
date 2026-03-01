@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Grid, Card, CardActionArea, CardContent, CircularProgress, Chip, Stack } from '@mui/material';
-import { Users, Receipt, PlayCircle } from 'lucide-react';
+import { Users, Receipt, PlayCircle, BellRing, CheckCircle2 } from 'lucide-react';
 import ky from 'ky';
 import { useNavigate } from 'react-router-dom';
+import { acknowledgeWaiter } from '../../utils/tableStore';
 
 const WaiterDashboard = () => {
     const navigate = useNavigate();
@@ -29,6 +30,18 @@ const WaiterDashboard = () => {
         return () => clearInterval(intervalId);
     }, []);
 
+    const handleAcknowledge = async (e, tableId) => {
+        e.stopPropagation();
+        try {
+            await acknowledgeWaiter(tableId);
+            // Refresh list
+            const data = await ky.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4242'}/api/waiter/tables`).json();
+            setTables(data);
+        } catch (err) {
+            console.error("Error acknowledging waiter call:", err);
+        }
+    };
+
     if (loading) return <Box sx={{ display: 'flex', mt: 10, justifyContent: 'center' }}><CircularProgress color="warning" /></Box>;
 
     return (
@@ -53,15 +66,31 @@ const WaiterDashboard = () => {
                                 <CardActionArea onClick={() => navigate(`/waiter/table/${table.mesa_id}`)} sx={{ p: 2 }}>
                                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                         <Typography variant="h5" sx={{ fontWeight: 900 }}>{table.identificador}</Typography>
-                                        <Chip
-                                            label={isOpen ? 'Ocupada' : 'Livre'}
-                                            size="small"
-                                            sx={{
-                                                fontWeight: 800,
-                                                bgcolor: isOpen ? '#FFF5E6' : '#EFF6FF',
-                                                color: isOpen ? '#FF8C00' : '#3B82F6'
-                                            }}
-                                        />
+                                        <Stack direction="row" gap={1}>
+                                            {table.chamar_garcom && (
+                                                <Chip
+                                                    icon={<BellRing size={14} color="#D32F2F" />}
+                                                    label="AJUDA!"
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: '#FFEBEE',
+                                                        color: '#D32F2F',
+                                                        fontWeight: 900,
+                                                        animation: 'pulse 1.5s infinite',
+                                                        border: '1px solid #FFCDD2'
+                                                    }}
+                                                />
+                                            )}
+                                            <Chip
+                                                label={isOpen ? 'Ocupada' : 'Livre'}
+                                                size="small"
+                                                sx={{
+                                                    fontWeight: 800,
+                                                    bgcolor: isOpen ? '#FFF5E6' : '#EFF6FF',
+                                                    color: isOpen ? '#FF8C00' : '#3B82F6'
+                                                }}
+                                            />
+                                        </Stack>
                                     </Stack>
 
                                     <Stack spacing={1}>
@@ -88,6 +117,21 @@ const WaiterDashboard = () => {
                                         )}
                                     </Stack>
                                 </CardActionArea>
+                                {table.chamar_garcom && (
+                                    <Box sx={{ p: 2, pt: 0 }}>
+                                        <Button
+                                            variant="contained"
+                                            color="error"
+                                            fullWidth
+                                            size="small"
+                                            startIcon={<CheckCircle2 size={16} />}
+                                            onClick={(e) => handleAcknowledge(e, table.mesa_id)}
+                                            sx={{ fontWeight: 800, borderRadius: 2 }}
+                                        >
+                                            Atender Chamado
+                                        </Button>
+                                    </Box>
+                                )}
                             </Card>
                         </Grid>
                     );

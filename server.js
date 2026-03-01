@@ -1227,7 +1227,7 @@ app.post('/api/pool/confirm', async (req, res) => {
 app.get('/api/waiter/tables', async (req, res) => {
     try {
         const query = `
-            SELECT m.id_mesa as mesa_id, m.identificador_mesa as identificador, m.capacidade,
+            SELECT m.id_mesa as mesa_id, m.identificador_mesa as identificador, m.capacidade, m.chamar_garcom,
                    s.id_sessao as sessao_id, s.status,
                    COUNT(p.id_pedido) as total_pedidos,
                    COALESCE(SUM(pi.final_price * pi.quantidade), 0) as total_conta
@@ -1257,13 +1257,13 @@ app.get('/api/waiter/tables/:tableId', async (req, res) => {
             [tableId]
         );
 
-        const basicRes = await pool.query("SELECT identificador_mesa FROM mesas WHERE id_mesa = $1", [tableId]);
+        const basicRes = await pool.query("SELECT identificador_mesa, chamar_garcom FROM mesas WHERE id_mesa = $1", [tableId]);
         if (basicRes.rows.length === 0) return res.status(404).json({ error: 'Mesa not found' });
 
-        const identificador = basicRes.rows[0].identificador_mesa;
+        const { identificador_mesa: identificador, chamar_garcom } = basicRes.rows[0];
 
         if (sessionRes.rows.length === 0) {
-            return res.json({ identificador, status: 'LIVRE', pedidos: [], total_pendente: 0 });
+            return res.json({ identificador, chamar_garcom, status: 'LIVRE', pedidos: [], total_pendente: 0 });
         }
 
         const sessionId = sessionRes.rows[0].id_sessao;
@@ -1311,6 +1311,7 @@ app.get('/api/waiter/tables/:tableId', async (req, res) => {
 
         res.json({
             identificador,
+            chamar_garcom,
             status: 'ABERTA',
             sessao_id: sessionId,
             pedidos: ordersRes.rows,
@@ -1397,6 +1398,34 @@ app.post('/api/waiter/payment/confirm', async (req, res) => {
         res.status(500).json({ error: e.message });
     } finally {
         client.release();
+    }
+});
+
+// POST /api/table/:tableId/call-waiter
+app.post('/api/table/:tableId/call-waiter', async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        await pool.query(
+            "UPDATE mesas SET chamar_garcom = true, chamar_garcom_em = CURRENT_TIMESTAMP WHERE id_mesa = $1",
+            [tableId]
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/table/:tableId/acknowledge-waiter
+app.post('/api/table/:tableId/acknowledge-waiter', async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        await pool.query(
+            "UPDATE mesas SET chamar_garcom = false WHERE id_mesa = $1",
+            [tableId]
+        );
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 // Roda a cada 10 minutos para limpar mesas se tiver passado do horario de fechamento + 30m

@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField } from '@mui/material';
 import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid, Checkbox, FormControlLabel, Chip } from '@mui/material';
-import { Camera, ArrowLeft, ShoppingBag, X, Search, Play, CreditCard } from 'lucide-react';
+import { Camera, ArrowLeft, ShoppingBag, X, Search, Play, CreditCard, BellRing, CheckCircle2 } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import ky from 'ky';
 import ItemDetailsModal from '../../components/ItemDetailsModal';
+import { acknowledgeWaiter } from '../../utils/tableStore';
 
 const WaiterTableManager = () => {
     const { tableId } = useParams();
@@ -195,6 +196,15 @@ const WaiterTableManager = () => {
         }
     };
 
+    const handleAcknowledgeCall = async () => {
+        try {
+            await acknowledgeWaiter(tableId);
+            await fetchTableDetails();
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
     if (loading) return <Box sx={{ display: 'flex', mt: 10, justifyContent: 'center' }}><CircularProgress /></Box>;
     if (!tableDetails) return <Typography>Mesa não encontrada</Typography>;
 
@@ -202,9 +212,31 @@ const WaiterTableManager = () => {
 
     return (
         <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                <IconButton onClick={() => navigate('/waiter')} sx={{ mr: 2 }}><ArrowLeft /></IconButton>
-                <Typography variant="h4" sx={{ fontWeight: 900 }}>Mesa {tableDetails.identificador}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4, justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <IconButton onClick={() => navigate('/waiter')} sx={{ mr: 2 }}><ArrowLeft /></IconButton>
+                    <Typography variant="h4" sx={{ fontWeight: 900 }}>Mesa {tableDetails.identificador}</Typography>
+                </Box>
+                {tableDetails.chamar_garcom && (
+                    <Chip
+                        icon={<BellRing size={18} color="#D32F2F" />}
+                        label="CHAMANDO GARÇOM"
+                        onClick={handleAcknowledgeCall}
+                        onDelete={handleAcknowledgeCall}
+                        deleteIcon={<CheckCircle2 size={18} color="#D32F2F" />}
+                        sx={{
+                            bgcolor: '#FFEBEE',
+                            color: '#D32F2F',
+                            fontWeight: 900,
+                            p: 2,
+                            height: 45,
+                            borderRadius: 3,
+                            animation: 'pulse 1.5s infinite',
+                            border: '1px solid #FFCDD2',
+                            '& .MuiChip-label': { px: 2 }
+                        }}
+                    />
+                )}
             </Box>
 
             <Grid container spacing={4}>
