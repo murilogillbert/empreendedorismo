@@ -545,10 +545,126 @@ app.get('/api/orders/:sessionId', async (req, res) => {
 app.patch('/api/orders/:id/status', async (req, res) => {
     const { status } = req.body;
     try {
-        await pool.query('UPDATE pedidos SET status = $1 WHERE id_pedido = $2', [status, req.params.id]);
+        let query = 'UPDATE pedidos SET status = $1';
+        const params = [status, req.params.id];
+
+        if (status === 'Preparando') {
+            query += ', em_preparo_em = CURRENT_TIMESTAMP';
+        } else if (status === 'Pronto') {
+            query += ', pronto_em = CURRENT_TIMESTAMP';
+        } else if (status === 'Entregue') {
+            query += ', entregue_em = CURRENT_TIMESTAMP';
+        }
+
+        query += ' WHERE id_pedido = $2';
+
+        await pool.query(query, params);
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// --- ADMIN METRICS ---
+
+app.get('/api/admin/metrics', async (req, res) => {
+    const { period } = req.query; // '1d', '1w', '1m', '3m', '6m', '1y'
+
+    let interval = "INTERVAL '1 month'";
+    if (period === '1d') interval = "INTERVAL '1 day'";
+    if (period === '1w') interval = "INTERVAL '1 week'";
+    if (period === '3m') interval = "INTERVAL '3 months'";
+    if (period === '6m') interval = "INTERVAL '6 months'";
+    if (period === '1y') interval = "INTERVAL '1 year'";
+
+    try {
+        const client = await pool.connect();
+        try {
+            // 1. Financeiro: Receita e Pedidos
+            const financialRes = await client.query(`
+                SELECT 
+                    COALESCE(SUM(valor_total), 0) as revenue,
+                    COUNT(*) as total_orders
+                FROM pagamentos 
+                WHERE status = 'CAPTURADO' AND criado_em >= NOW() - ${interval}
+            `);
+
+            // 2. Mesas: Totais, Vazias e Ocupadas
+            const tablesRes = await client.query(`
+                SELECT 
+                    (SELECT COUNT(*) FROM mesas WHERE ativa = true) as total_tables,
+                    (SELECT COUNT(DISTINCT id_mesa) FROM sessoes WHERE status = 'ABERTA') as occupied_tables
+            `);
+
+            // 3. Performance: Tempo Médio
+            const performanceRes = await client.query(`
+                SELECT 
+                    AVG(EXTRACT(EPOCH FROM (pronto_em - em_preparo_em))/60) as avg_production_time,
+                    AVG(EXTRACT(EPOCH FROM (entregue_em - pronto_em))/60) as avg_delivery_time
+                FROM pedidos
+                WHERE status = 'Entregue' 
+                AND em_preparo_em IS NOT NULL 
+                AND pronto_em IS NOT NULL 
+                AND entregue_em IS NOT NULL
+                AND criado_em >= NOW() - ${interval}
+            `);
+
+            // 4. Horários de Pico (Agrupado por hora)
+            const peakHoursRes = await client.query(`
+                SELECT 
+                    EXTRACT(HOUR FROM criado_em) as hour,
+                    COUNT(*) as count
+                FROM pedidos
+                WHERE status != 'Cancelado' AND criado_em >= NOW() - ${interval}
+                GROUP BY hour
+                ORDER BY hour
+            `);
+
+            // 5. Abandono: Mesas abertas mas fechadas sem pedidos
+            // (Sessões fechadas que não possuem nenhum pedido associado)
+            const abandonmentRes = await client.query(`
+                SELECT COUNT(*) as abandoned_sessions
+                FROM sessoes s
+                WHERE s.status = 'FECHADA' 
+                AND s.criado_em >= NOW() - ${interval}
+                AND NOT EXISTS (SELECT 1 FROM pedidos p WHERE p.id_sessao = s.id_sessao)
+            `);
+
+            // 6. Evolução Diária (Para gráfico de receita)
+            const dailyRevenueRes = await client.query(`
+                SELECT 
+                    TO_CHAR(criado_em, 'DD/MM') as date,
+                    SUM(valor_total) as value
+                FROM pagamentos
+                WHERE status = 'CAPTURADO' AND criado_em >= NOW() - ${interval}
+                GROUP BY date, DATE_TRUNC('day', criado_em)
+                ORDER BY DATE_TRUNC('day', criado_em)
+            `);
+
+            const metrics = {
+                revenue: parseFloat(financialRes.rows[0].revenue),
+                totalOrders: parseInt(financialRes.rows[0].total_orders),
+                tables: {
+                    total: parseInt(tablesRes.rows[0].total_tables),
+                    occupied: parseInt(tablesRes.rows[0].occupied_tables),
+                    empty: Math.max(0, parseInt(tablesRes.rows[0].total_tables) - parseInt(tablesRes.rows[0].occupied_tables))
+                },
+                performance: {
+                    avgProduction: parseFloat(performanceRes.rows[0].avg_production_time || 0).toFixed(1),
+                    avgDelivery: parseFloat(performanceRes.rows[0].avg_delivery_time || 0).toFixed(1)
+                },
+                peakHours: peakHoursRes.rows.map(r => ({ hour: `${parseInt(r.hour)}h`, count: parseInt(r.count) })),
+                abandonment: parseInt(abandonmentRes.rows[0].abandoned_sessions),
+                revenueEvolution: dailyRevenueRes.rows
+            };
+
+            res.json(metrics);
+        } finally {
+            client.release();
+        }
+    } catch (e) {
+        console.error('Error fetching metrics:', e);
+        res.status(500).json({ error: e.message });
     }
 });
 
