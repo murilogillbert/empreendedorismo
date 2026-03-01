@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton } from '@mui/material';
-import { Camera, ArrowLeft, CreditCard, ShoppingBag, X } from 'lucide-react';
+//import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
+//import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField } from '@mui/material';
+import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
+import { Camera, ArrowLeft, ShoppingBag, X, Search } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import ky from 'ky';
 
@@ -16,21 +18,76 @@ const WaiterTableManager = () => {
     const [ocrResult, setOcrResult] = useState('');
     const fileInputRef = useRef(null);
 
+    // --- NOVO: Estados para o Lançamento de Pedidos ---
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [menuItems, setMenuItems] = useState([]);
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [observations, setObservations] = useState('');
+    const [submittingOrder, setSubmittingOrder] = useState(false);
+
+    // Função para buscar os dados da mesa (separada para podermos recarregar depois de um pedido)
+    const fetchTableDetails = async () => {
+        try {
+            const data = await ky.get(`http://localhost:4242/api/waiter/tables/${tableId}`).json();
+            setTableDetails(data);
+        } catch (err) {
+            console.error("Error fetching table details:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchTableDetails = async () => {
-            try {
-                // Future endpoint to fetch detailed table data including active session & orders
-                const data = await ky.get(`http://localhost:4242/api/waiter/tables/${tableId}`).json();
-                setTableDetails(data);
-            } catch (err) {
-                console.error("Error fetching table details:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchTableDetails();
     }, [tableId]);
 
+    // --- NOVO: Funções do Menu ---
+    const handleOpenMenu = async () => {
+        setMenuOpen(true);
+        if (menuItems.length === 0) {
+            try {
+                const data = await ky.get('http://localhost:4242/api/menu').json();
+                setMenuItems(data);
+            } catch (err) {
+                console.error('Erro ao buscar cardápio', err);
+                alert('Falha ao carregar o cardápio.');
+            }
+        }
+    };
+
+    const handleSelectMenuItem = (item) => {
+        setSelectedItem(item);
+        setObservations(''); // Limpa as observações antigas
+    };
+
+    const handleConfirmOrder = async () => {
+        if (!selectedItem || !tableDetails?.sessao_id) return;
+
+        setSubmittingOrder(true);
+        try {
+            await ky.post('http://localhost:4242/api/orders', {
+                json: {
+                    item: selectedItem,
+                    selectedAddons: [], // Para manter simples no terminal do garçom por enquanto
+                    observations: observations,
+                    sessionId: tableDetails.sessao_id
+                }
+            }).json();
+
+            // Sucesso! Limpa o estado e recarrega a mesa
+            setSelectedItem(null);
+            setMenuOpen(false);
+            await fetchTableDetails();
+
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao lançar pedido. Verifique se a mesa está aberta.');
+        } finally {
+            setSubmittingOrder(false);
+        }
+    };
+
+    // --- Funções Originais ---
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -39,13 +96,7 @@ const WaiterTableManager = () => {
         setOcrResult('');
 
         try {
-            const result = await Tesseract.recognize(
-                file,
-                'eng',
-                { logger: m => console.log(m) }
-            );
-
-            // Tentar extrair 16 digitos seguidos ou agrupados de 4 em 4 via Regex simples
+            const result = await Tesseract.recognize(file, 'eng');
             const text = result.data.text;
             const cardRegex = /(?:\d[ -]*?){13,16}/g;
             const matches = text.match(cardRegex);
@@ -53,7 +104,7 @@ const WaiterTableManager = () => {
             if (matches && matches.length > 0) {
                 const cleanestMatch = matches[0].replace(/[ -]/g, '');
                 setOcrResult(cleanestMatch);
-                alert(`Cartão Lido: **** **** **** ${cleanestMatch.slice(-4)}\n(Apenas demonstração, não transaciona real via Tesseract no modo DEMO)`);
+                alert(`Cartão Lido: **** **** **** ${cleanestMatch.slice(-4)}`);
             } else {
                 alert('Não foi possível ler os números do cartão. Tente novamente com mais luz.');
             }
@@ -91,7 +142,7 @@ const WaiterTableManager = () => {
 
             <Grid container spacing={4}>
                 {/* General Info / Actions */}
-                <Grid item xs={12} md={5}>
+                <Grid size={{ xs: 12, md: 5 }}>
                     <Card elevation={0} sx={{ p: 3, borderRadius: 4, mb: 3, border: '1px solid #E5E7EB' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>Ações Rápidas</Typography>
 
@@ -101,7 +152,8 @@ const WaiterTableManager = () => {
                                 startIcon={<ShoppingBag />}
                                 fullWidth
                                 disabled={!isActive}
-                                onClick={() => alert('O garçom abriria o Menu aqui p/ a mesa ' + tableId)}
+                                onClick={handleOpenMenu}
+                                sx={{ height: 50, fontWeight: 700, borderColor: '#FF8C00', color: '#FF8C00', '&:hover': { borderColor: '#E67E00', bgcolor: '#FFF5E6' } }}
                             >
                                 Lançar Novo Pedido
                             </Button>
@@ -113,15 +165,16 @@ const WaiterTableManager = () => {
                                     startIcon={<X />}
                                     fullWidth
                                     onClick={handleCloseTableSession}
+                                    sx={{ height: 50, fontWeight: 700 }}
                                 >
                                     Fechar Conta/Sessão da Mesa
                                 </Button>
                             ) : (
                                 <Button
                                     variant="contained"
-                                    sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#E67E00' } }}
+                                    sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#E67E00' }, height: 50, fontWeight: 700 }}
                                     fullWidth
-                                    onClick={() => alert('Rota para forçar abertura (via cliente ou garçom)')}
+                                    onClick={() => alert('Rota para forçar abertura ainda será implementada')}
                                 >
                                     Abrir Nova Sessão
                                 </Button>
@@ -168,7 +221,7 @@ const WaiterTableManager = () => {
                 </Grid>
 
                 {/* Account Summary */}
-                <Grid item xs={12} md={7}>
+                <Grid size={{ xs: 12, md: 7 }}>
                     <Card elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #E5E7EB' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Extrato Atual</Typography>
 
@@ -201,6 +254,80 @@ const WaiterTableManager = () => {
                     </Card>
                 </Grid>
             </Grid>
+
+            {/* --- MODAL DE LANÇAMENTO DE PEDIDO --- */}
+            <Dialog
+                open={menuOpen}
+                onClose={() => { setMenuOpen(false); setSelectedItem(null); }}
+                fullWidth
+                maxWidth="sm"
+            >
+                {!selectedItem ? (
+                    <>
+                        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Cardápio</DialogTitle>
+                        <DialogContent dividers sx={{ p: 0 }}>
+                            <List disablePadding>
+                                {menuItems.map((item) => (
+                                    <ListItemButton key={item.id} onClick={() => handleSelectMenuItem(item)} sx={{ p: 2, borderBottom: '1px solid #f0f0f0' }}>
+                                        <ListItemAvatar>
+                                            <Avatar src={item.image} variant="rounded" sx={{ width: 56, height: 56, mr: 2 }} />
+                                        </ListItemAvatar>
+                                        <ListItemText
+                                            primary={<Typography sx={{ fontWeight: 700 }}>{item.name}</Typography>}
+                                            secondary={<Typography variant="body2" color="text.secondary" noWrap>{item.description}</Typography>}
+                                        />
+                                        <Typography sx={{ fontWeight: 800, color: '#FF8C00' }}>R$ {item.price.toFixed(2)}</Typography>
+                                    </ListItemButton>
+                                ))}
+                                {menuItems.length === 0 && (
+                                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                                        <CircularProgress size={24} />
+                                    </Box>
+                                )}
+                            </List>
+                        </DialogContent>
+                        <DialogActions sx={{ p: 2 }}>
+                            <Button onClick={() => setMenuOpen(false)} sx={{ color: '#757575' }}>Cancelar</Button>
+                        </DialogActions>
+                    </>
+                ) : (
+                    <>
+                        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <IconButton size="small" onClick={() => setSelectedItem(null)}><ArrowLeft size={20} /></IconButton>
+                            Detalhes do Pedido
+                        </DialogTitle>
+                        <DialogContent dividers>
+                            <Box sx={{ textAlign: 'center', mb: 3 }}>
+                                <Avatar src={selectedItem.image} variant="rounded" sx={{ width: 100, height: 100, mx: 'auto', mb: 2 }} />
+                                <Typography variant="h6" sx={{ fontWeight: 800 }}>{selectedItem.name}</Typography>
+                                <Typography variant="h6" sx={{ color: '#FF8C00', fontWeight: 900 }}>R$ {selectedItem.price.toFixed(2)}</Typography>
+                            </Box>
+
+                            <TextField
+                                label="Observações (Opcional)"
+                                placeholder="Ex: Sem cebola, ponto da carne..."
+                                fullWidth
+                                multiline
+                                rows={3}
+                                value={observations}
+                                onChange={(e) => setObservations(e.target.value)}
+                                sx={{ mb: 2 }}
+                            />
+                        </DialogContent>
+                        <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
+                            <Button onClick={() => setSelectedItem(null)} sx={{ color: '#757575' }}>Voltar</Button>
+                            <Button
+                                variant="contained"
+                                disabled={submittingOrder}
+                                onClick={handleConfirmOrder}
+                                sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#E67E00' }, fontWeight: 700, px: 4 }}
+                            >
+                                {submittingOrder ? <CircularProgress size={24} color="inherit" /> : 'Confirmar Pedido'}
+                            </Button>
+                        </DialogActions>
+                    </>
+                )}
+            </Dialog>
         </Box>
     );
 };
