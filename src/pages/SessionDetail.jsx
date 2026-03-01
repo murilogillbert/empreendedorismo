@@ -101,7 +101,9 @@ const SessionDetail = () => {
                         <React.Fragment key={item.id_pedido_item}>
                             <ListItem sx={{ py: 2 }}>
                                 <ListItemText
-                                    primary={<Typography sx={{ fontWeight: 700 }}>{item.quantidade}x {item.nome}</Typography>}
+                                    primaryTypographyProps={{ component: 'div' }}
+                                    secondaryTypographyProps={{ component: 'div' }}
+                                    primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantidade}x {item.nome}</Typography>}
                                     secondary={item.observacoes ? `"${item.observacoes}"` : null}
                                 />
                                 <Typography sx={{ fontWeight: 800 }}>

@@ -196,6 +196,7 @@ const Bill = () => {
                                 <ListItem sx={{ px: 0, py: 1.5, alignItems: 'flex-start' }}>
                                     <ListItemText
                                         primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity ?? item.quantidade ?? 1}x {item.name}</Typography>}
+                                        secondaryTypographyProps={{ component: 'div' }}
                                         secondary={
                                             <Box component="span" sx={{ display: 'block' }}>
                                                 {item.selectedAddons && item.selectedAddons.length > 0 && (
