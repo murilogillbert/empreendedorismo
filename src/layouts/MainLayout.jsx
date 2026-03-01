@@ -16,7 +16,8 @@ import {
     Receipt,
     UserCircle,
     ScanLine,
-    LogOut
+    LogOut,
+    BellRing
 } from 'lucide-react';
 import {
     Dialog,
@@ -29,7 +30,7 @@ import {
     Snackbar,
     Alert
 } from '@mui/material';
-import { getTableSession, joinTable, clearTableSession } from '../utils/tableStore';
+import { getTableSession, joinTable, clearTableSession, callWaiter } from '../utils/tableStore';
 
 const MainLayout = () => {
     const navigate = useNavigate();
@@ -49,6 +50,8 @@ const MainLayout = () => {
     const [openModal, setOpenModal] = React.useState(false);
     const [tableCode, setTableCode] = React.useState('');
     const [errorMsg, setErrorMsg] = React.useState('');
+    const [callingWaiter, setCallingWaiter] = React.useState(false);
+    const [callSuccess, setCallSuccess] = React.useState(false);
 
     React.useEffect(() => {
         setTableSession(getTableSession());
@@ -74,6 +77,19 @@ const MainLayout = () => {
         clearTableSession();
         setTableSession(null);
         navigate('/menu');
+    };
+
+    const handleCallWaiter = async () => {
+        if (!tableSession) return;
+        setCallingWaiter(true);
+        try {
+            await callWaiter(tableSession.tableId);
+            setCallSuccess(true);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setCallingWaiter(false);
+        }
     };
 
     return (
@@ -110,6 +126,22 @@ const MainLayout = () => {
 
                     {tableSession ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<BellRing size={16} />}
+                                onClick={handleCallWaiter}
+                                disabled={callingWaiter}
+                                sx={{
+                                    borderRadius: '12px',
+                                    fontWeight: 800,
+                                    color: 'var(--primary)',
+                                    borderColor: 'var(--primary)',
+                                    '&:hover': { bgcolor: '#FFF5E6', borderColor: 'var(--primary-hover)' }
+                                }}
+                            >
+                                {callingWaiter ? 'Chamando...' : 'Garçom'}
+                            </Button>
                             <Box sx={{
                                 bgcolor: '#FFF5E6',
                                 px: 2,
@@ -210,11 +242,37 @@ const MainLayout = () => {
                     >
                         Confirmar
                     </Button>
+                    <Button
+                        variant="outlined"
+                        fullWidth
+                        startIcon={<ScanLine size={18} />}
+                        sx={{
+                            borderRadius: '16px',
+                            py: 1.5,
+                            fontWeight: 800,
+                            borderColor: '#DDD',
+                            color: '#666'
+                        }}
+                        onClick={() => alert('Para ler o QR Code, aponte sua câmera para o código na mesa.\n(Funcionalidade integrada ao navegador)')}
+                    >
+                        Ler QR Code
+                    </Button>
                     <Button onClick={() => setOpenModal(false)} color="inherit" fullWidth sx={{ fontWeight: 700 }}>
                         Cancelar
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <Snackbar
+                open={callSuccess}
+                autoHideDuration={4000}
+                onClose={() => setCallSuccess(false)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert severity="success" sx={{ borderRadius: 3, fontWeight: 700 }}>
+                    Garçom chamado! Em breve alguém virá atendê-lo.
+                </Alert>
+            </Snackbar>
 
             {/* Main Content */}
             <Container component="main" maxWidth="md" sx={{ flexGrow: 1, py: { xs: 3, md: 5 }, pb: 12 }}>

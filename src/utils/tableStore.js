@@ -42,3 +42,28 @@ export const joinTable = async (tableCode) => {
         throw error;
     }
 };
+export const callWaiter = async (tableId) => {
+    try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+        const response = await fetch(`${API_URL}/api/table/${tableId}/call-waiter`, {
+            method: 'POST',
+        });
+        if (!response.ok) throw new Error('Erro ao chamar garçom');
+        return await response.json();
+    } catch (error) {
+        throw error;
+    }
+};
+
+export const acknowledgeWaiter = async (tableId) => {
+    try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+        const response = await fetch(`${API_URL}/api/table/${tableId}/acknowledge-waiter`, {
+            method: 'POST',
+        });
+        if (!response.ok) throw new Error('Erro ao atender garçom');
+        return await response.json();
+    } catch (error) {
+        throw error;
+    }
+};
