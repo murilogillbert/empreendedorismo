@@ -26,6 +26,7 @@ import {
 import { CreditCard, Users2, Copy, Share2, QrCode, LogOut, ChevronDown, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { getOrders, createPool, getPoolBySession, getAllPools, removePoolItem } from '../utils/orderStore';
 import { getTableSession, clearTableSession } from '../utils/tableStore';
+import { getCurrentUser } from '../utils/userStore';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
 
@@ -124,7 +125,10 @@ const Bill = () => {
     };
 
     const handleStripeCheckout = async () => {
+        const session = getTableSession();
+        const user = getCurrentUser();
         try {
+            const totalAmount = total;
             const data = await ky.post('http://localhost:4242/create-checkout-session', {
                 json: {
                     items: activeOrders.map(o => ({
@@ -133,7 +137,10 @@ const Bill = () => {
                         quantity: o.quantity ?? o.quantidade ?? 1
                     })),
                     tip: waiterTip,
-                    appTax: appTax
+                    appTax: appTax,
+                    total: totalAmount,
+                    sessionId: session?.sessionId,
+                    userId: user?.id
                 }
             }).json();
             window.location.href = data.url;
@@ -196,6 +203,7 @@ const Bill = () => {
                                 <ListItem sx={{ px: 0, py: 1.5, alignItems: 'flex-start' }}>
                                     <ListItemText
                                         primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity ?? item.quantidade ?? 1}x {item.name}</Typography>}
+                                        secondaryTypographyProps={{ component: 'div' }}
                                         secondary={
                                             <Box component="span" sx={{ display: 'block' }}>
                                                 {item.selectedAddons && item.selectedAddons.length > 0 && (

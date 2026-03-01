@@ -170,7 +170,7 @@ const Profile = () => {
                                     sx={{ py: 2, cursor: 'pointer', '&:hover': { bgcolor: '#FAFAFA' } }}
                                 >
                                     <ListItemText
-                                        primary={<Typography sx={{ fontWeight: 700 }}>Mesa {session.table}</Typography>}
+                                        primary={<Typography component="span" sx={{ fontWeight: 700 }}>Mesa {session.table}</Typography>}
                                         secondary={new Date(session.date).toLocaleDateString('pt-BR')}
                                     />
                                     <Stack alignItems="flex-end" spacing={0.5}>
