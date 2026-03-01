@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField } from '@mui/material';
 import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid, Checkbox, FormControlLabel, Chip } from '@mui/material';
-import { Camera, ArrowLeft, ShoppingBag, X, Search, Play } from 'lucide-react';
+import { Camera, ArrowLeft, ShoppingBag, X, Search, Play, CreditCard } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import ky from 'ky';
 import ItemDetailsModal from '../../components/ItemDetailsModal';
@@ -208,7 +208,7 @@ const WaiterTableManager = () => {
 
             <Grid container spacing={4}>
                 {/* General Info / Actions */}
-                <Grid size={{ xs: 12, md: 5 }}>
+                <Grid item xs={12} md={5}>
                     <Card elevation={0} sx={{ p: 3, borderRadius: 4, mb: 3, border: '1px solid #E5E7EB' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>Ações Rápidas</Typography>
 
@@ -288,7 +288,7 @@ const WaiterTableManager = () => {
                 </Grid>
 
                 {/* Account Summary */}
-                <Grid size={{ xs: 12, md: 7 }}>
+                <Grid item xs={12} md={7}>
                     <Card elevation={0} sx={{ p: 3, borderRadius: 4, border: '1px solid #E5E7EB' }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Extrato de Pagamento</Typography>
 
@@ -467,8 +467,12 @@ const WaiterTableManager = () => {
                             label="Número do Cartão"
                             fullWidth
                             value={cardData.number}
-                            onChange={(e) => setCardData({ ...cardData, number: e.target.value })}
-                            placeholder="**** **** **** ****"
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                const masked = val.replace(/(.{4})/g, '$1 ').trim().slice(0, 19);
+                                setCardData({ ...cardData, number: masked });
+                            }}
+                            placeholder="0000 0000 0000 0000"
                         />
                         <TextField
                             label="Nome no Cartão"
@@ -482,7 +486,11 @@ const WaiterTableManager = () => {
                                     label="Validade"
                                     fullWidth
                                     value={cardData.expiry}
-                                    onChange={(e) => setCardData({ ...cardData, expiry: e.target.value })}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/\D/g, '');
+                                        if (val.length > 2) val = val.substring(0, 2) + '/' + val.substring(2, 4);
+                                        setCardData({ ...cardData, expiry: val.slice(0, 5) });
+                                    }}
                                     placeholder="MM/AA"
                                 />
                             </Grid>
@@ -491,7 +499,10 @@ const WaiterTableManager = () => {
                                     label="CVC"
                                     fullWidth
                                     value={cardData.cvc}
-                                    onChange={(e) => setCardData({ ...cardData, cvc: e.target.value })}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                        setCardData({ ...cardData, cvc: val });
+                                    }}
                                     placeholder="123"
                                 />
                             </Grid>
