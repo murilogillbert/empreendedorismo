@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+//import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import { CheckCircle2, Receipt } from 'lucide-react';
 import ky from 'ky';
@@ -7,6 +8,10 @@ import ky from 'ky';
 const Success = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+
+    const { restaurantSlug, tableId } = useParams();
+    const basePath = `/${restaurantSlug || 'demo'}${tableId ? `/${tableId}` : ''}`;
+
     const [countdown, setCountdown] = useState(10);
     const [paymentType, setPaymentType] = useState(null); // 'direct' or 'pool'
     const hasFired = useRef(false);
@@ -26,9 +31,11 @@ const Success = () => {
 
             if (poolId && amount && name) {
                 try {
+                    const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+                    const API_URL = `${BASE_URL}/api`;
                     // Agora unificado: tanto direto quanto pool usam /api/pool/confirm
                     // porque agora o 'Pagar Integral' também cria uma pool prévia.
-                    await ky.post('http://localhost:4242/api/pool/confirm', {
+                    await ky.post(`${API_URL}/pool/confirm`, {
                         json: {
                             poolId,
                             amount: parseFloat(amount),
@@ -47,7 +54,7 @@ const Success = () => {
         // Para pagamento direto: volta para /bill (o cliente continua na mesa)
         // Para pool: vai para /menu (o contribuidor pode sair)
         const type = searchParams.get('type');
-        const redirectTo = type === 'direct' ? '/bill' : '/menu';
+        const redirectTo = type === 'direct' ? `${basePath}/bill` : `${basePath}/menu`;
 
         const interval = setInterval(() => {
             setCountdown((prev) => {
@@ -112,7 +119,7 @@ const Success = () => {
             <Button
                 variant="outlined"
                 startIcon={isDirect ? <Receipt size={18} /> : undefined}
-                onClick={() => navigate(isDirect ? '/bill' : '/menu')}
+                onClick={() => navigate(isDirect ? `${basePath}/bill` : `${basePath}/menu`)}
                 sx={{
                     borderRadius: 4,
                     borderColor: '#DDD',
