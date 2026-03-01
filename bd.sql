@@ -205,9 +205,12 @@ CREATE TABLE pagamentos (
 CREATE TABLE pagamentos_divisoes (
     id_divisao SERIAL PRIMARY KEY,
     id_pagamento INTEGER NOT NULL REFERENCES pagamentos(id_pagamento) ON DELETE CASCADE,
-    id_usuario_pagador INTEGER NOT NULL REFERENCES usuarios(id_usuario),
+    id_usuario_pagador INTEGER REFERENCES usuarios(id_usuario), -- Opcional para contribuintes anônimos da mesa
+    nome_contribuinte VARCHAR(100),
+    stripe_payment_intent_id VARCHAR(100),
     valor DECIMAL(10,2) NOT NULL,
-    status VARCHAR(20) DEFAULT 'PENDENTE'
+    status VARCHAR(20) DEFAULT 'PENDENTE',
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE pagamentos_formas (

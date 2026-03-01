@@ -194,7 +194,7 @@ const Management = () => {
             </Stack>
 
             <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} sm={4}>
+                <Grid xs={12} sm={4}>
                     <Card sx={{ p: 3, borderRadius: 4, bgcolor: '#1A1A1A', color: 'white' }}>
                         <Stack direction="row" spacing={2} alignItems="center">
                             <Box sx={{ bgcolor: 'rgba(255,140,0,0.2)', p: 1.5, borderRadius: 3 }}>
@@ -207,7 +207,7 @@ const Management = () => {
                         </Stack>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid xs={12} sm={4}>
                     <Card sx={{ p: 3, borderRadius: 4, border: '1px solid #F0F0F0' }}>
                         <Stack direction="row" spacing={2} alignItems="center">
                             <Box sx={{ bgcolor: '#FFF5E6', p: 1.5, borderRadius: 3 }}>
@@ -220,7 +220,7 @@ const Management = () => {
                         </Stack>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid xs={12} sm={4}>
                     <Card sx={{ p: 3, borderRadius: 4, border: '1px solid #F0F0F0' }}>
                         <Stack direction="row" spacing={2} alignItems="center">
                             <Box sx={{ bgcolor: '#F0F0F0', p: 1.5, borderRadius: 3 }}>
@@ -245,7 +245,7 @@ const Management = () => {
 
             {tab === 0 && (
                 <Grid container spacing={3}>
-                    <Grid item xs={12} md={8}>
+                    <Grid xs={12} md={8}>
                         <Card sx={{ p: 3, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 400 }}>
                             <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Receita Semanal (R$)</Typography>
                             <Box sx={{ height: 300, width: '100%' }}>
@@ -261,7 +261,7 @@ const Management = () => {
                             </Box>
                         </Card>
                     </Grid>
-                    <Grid item xs={12} md={4}>
+                    <Grid xs={12} md={4}>
                         <Card sx={{ p: 3, borderRadius: 4, border: '1px solid #F0F0F0', minHeight: 400 }}>
                             <Typography variant="h6" sx={{ fontWeight: 800, mb: 3 }}>Vendas por Categoria</Typography>
                             <Box sx={{ height: 300, width: '100%', display: 'flex', justifyContent: 'center' }}>
@@ -397,7 +397,7 @@ const Management = () => {
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         />
                         <Grid container spacing={2}>
-                            <Grid item xs={6}>
+                            <Grid xs={6}>
                                 <TextField
                                     label="Preço (R$)"
                                     type="number"
@@ -406,7 +406,7 @@ const Management = () => {
                                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
                                 />
                             </Grid>
-                            <Grid item xs={6}>
+                            <Grid xs={6}>
                                 <TextField
                                     select
                                     label="Categoria"

@@ -59,7 +59,7 @@ const Kitchen = () => {
                     </Box>
                 </Box>
                 <Stack direction="row" spacing={2}>
-                    <IconButton onClick={fetchOrders} sx={{ bgcolor: 'white', border: '1px solid #DDD' }}>
+                    <IconButton onClick={fetchOrdersData} sx={{ bgcolor: 'white', border: '1px solid #DDD' }}>
                         <RefreshCw size={20} />
                     </IconButton>
                     <Button variant="outlined" startIcon={<ArrowLeft />} onClick={() => navigate('/admin')}>Portal</Button>
@@ -68,7 +68,7 @@ const Kitchen = () => {
 
             <Grid container spacing={3}>
                 {columns.map((col) => (
-                    <Grid item xs={12} md={4} key={col.status}>
+                    <Grid xs={12} md={4} key={col.status}>
                         <Paper
                             elevation={0}
                             sx={{

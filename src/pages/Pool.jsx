@@ -27,11 +27,20 @@ const Pool = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const data = getPool(poolId);
-        if (data) {
-            setPool(data);
-        }
-        setLoading(false);
+        const fetchPool = async () => {
+            const data = await getPool(poolId);
+            if (data) {
+                setPool(data);
+            }
+            setLoading(false);
+        };
+        fetchPool();
+
+        const intervalId = setInterval(() => {
+            fetchPool();
+        }, 15000);
+
+        return () => clearInterval(intervalId);
     }, [poolId]);
 
     const handleContribute = async () => {
@@ -47,19 +56,12 @@ const Pool = () => {
 
         try {
             // Reusing the backend logic but customized for a pool payment
-            const data = await ky.post('http://localhost:3001/create-checkout-session', {
+            const data = await ky.post('http://localhost:4242/api/pool/checkout', {
                 json: {
-                    items: [
-                        { name: `Contribuição Mesa - ${name}`, price: payAmount, quantity: 1 }
-                    ],
-                    tip: 0,
-                    appTax: 0,
-                    metadata: { // Send metadata if backend supports, otherwise just pass in success URL params
-                        poolId: poolId,
-                        contributorName: name,
-                        contributedAmount: payAmount
-                    },
-                    customSuccessUrl: `http://localhost:3000/success?pool_id=${poolId}&amount=${payAmount}&name=${encodeURIComponent(name)}`
+                    poolId: poolId,
+                    amount: payAmount,
+                    contributorName: name,
+                    itemName: `Contribuição Mesa - ${name}`
                 }
             }).json();
 
@@ -93,9 +95,9 @@ const Pool = () => {
             <Card elevation={0} sx={{ p: 3, borderRadius: 4, mb: 3, border: '1px solid #F0F0F0', textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">Valor Restante</Typography>
                 <Typography variant="h3" sx={{ fontWeight: 900, color: '#FF8C00' }}>
-                    R$ {pool.remainingAmount.toFixed(2)}
+                    R$ {(pool.remainingAmount || 0).toFixed(2)}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">Total da Conta: R$ {pool.totalAmount.toFixed(2)}</Typography>
+                <Typography variant="body2" color="text.secondary">Total da Conta: R$ {(pool.totalAmount || 0).toFixed(2)}</Typography>
             </Card>
 
             {pool.isPaid ? (
@@ -119,9 +121,15 @@ const Pool = () => {
                             type="number"
                             fullWidth
                             value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
+                            onChange={(e) => {
+                                let val = parseFloat(e.target.value);
+                                if (val > pool.remainingAmount) {
+                                    val = pool.remainingAmount;
+                                }
+                                setAmount(val.toString());
+                            }}
                             size="small"
-                            placeholder={`Máx R$ ${pool.remainingAmount.toFixed(2)}`}
+                            placeholder={`Máx R$ ${(pool.remainingAmount || 0).toFixed(2)}`}
                         />
                         <Button
                             variant="contained"
@@ -155,7 +163,7 @@ const Pool = () => {
                                         primary={<Typography sx={{ fontWeight: 700 }}>{c.contributorName}</Typography>}
                                         secondary={new Date(c.timestamp).toLocaleTimeString()}
                                     />
-                                    <Typography sx={{ fontWeight: 800, color: '#2e7d32' }}>+ R$ {c.amount.toFixed(2)}</Typography>
+                                    <Typography sx={{ fontWeight: 800, color: '#2e7d32' }}>+ R$ {(c.amount || 0).toFixed(2)}</Typography>
                                 </ListItem>
                                 {idx < pool.contributions.length - 1 && <Divider />}
                             </React.Fragment>

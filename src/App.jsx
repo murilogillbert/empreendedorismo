@@ -16,6 +16,9 @@ import Register from './pages/Auth/Register';
 import AdminPortal from './pages/Admin/AdminPortal';
 import Management from './pages/Admin/Management';
 import Kitchen from './pages/Admin/Kitchen';
+import WaiterLayout from './layouts/WaiterLayout';
+import WaiterDashboard from './pages/Waiter/WaiterDashboard';
+import WaiterTableManager from './pages/Waiter/WaiterTableManager';
 
 // Future pages (placeholder)
 const PlaceholderPage = ({ title }) => (
@@ -118,6 +121,11 @@ function App() {
                         <Route index element={<AdminPortal />} />
                         <Route path="management" element={<Management />} />
                         <Route path="kitchen" element={<Kitchen />} />
+                    </Route>
+
+                    <Route path="waiter" element={<WaiterLayout />}>
+                        <Route index element={<WaiterDashboard />} />
+                        <Route path="table/:tableId" element={<WaiterTableManager />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

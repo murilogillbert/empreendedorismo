@@ -18,11 +18,14 @@ import {
     Snackbar,
     Alert
 } from '@mui/material';
-import { CreditCard, Users2, Copy, Share2, QrCode } from 'lucide-react';
-import { getOrders, createPool } from '../utils/orderStore';
+import { CreditCard, Users2, Copy, Share2, QrCode, LogOut } from 'lucide-react';
+import { getOrders, createPool, getPoolBySession } from '../utils/orderStore';
+import { getTableSession, clearTableSession } from '../utils/tableStore';
 import { QRCodeSVG } from 'qrcode.react';
+import { useNavigate } from 'react-router-dom';
 
 const Bill = () => {
+    const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [waiterTipPercent, setWaiterTipPercent] = useState(10);
     const [myPayment, setMyPayment] = useState('');
@@ -30,27 +33,53 @@ const Bill = () => {
     const [openSnackbar, setOpenSnackbar] = useState(false);
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            const allOrders = await getOrders();
-            const activeOrders = allOrders.filter(o => o.status === 'Entregue' || o.status === 'Pronto');
+        const fetchOrdersAndPool = async () => {
+            const session = getTableSession();
+            if (!session) return;
+
+            const allOrders = await getOrders(session.sessionId);
+            const activeOrders = allOrders.filter(o => o.status === 'Entregue' || o.status === 'Pronto' || o.status === 'Recebido' || o.status === 'Preparando');
             setOrders(activeOrders);
+
+            const existingPool = await getPoolBySession(session.sessionId);
+            if (existingPool) {
+                setPool(existingPool);
+            }
         };
-        fetchOrders();
+
+        // Initial fetch
+        fetchOrdersAndPool();
+
+        // Poll every 15 seconds
+        const intervalId = setInterval(() => {
+            fetchOrdersAndPool();
+        }, 15000);
+
+        return () => clearInterval(intervalId);
     }, []);
 
-    const subtotal = orders.reduce((acc, item) => acc + ((item.finalPrice || item.price) * item.quantity), 0);
+    const subtotal = orders.reduce((acc, item) => acc + (parseFloat(item.finalPrice ?? item.price ?? 0) * (item.quantity ?? item.quantidade ?? 1)), 0);
     const waiterTip = subtotal * (waiterTipPercent / 100);
     const appTax = subtotal * 0.01;
     const total = subtotal + waiterTip + appTax;
 
-    const handleCreatePool = () => {
+    const handleCreatePool = async () => {
         const payAmount = parseFloat(myPayment) || 0;
         if (payAmount >= total) {
             alert("Para pagar o valor total, use o botão 'Pagar Integral'");
             return;
         }
-        const newPool = createPool(total, payAmount);
-        setPool(newPool);
+        const session = getTableSession();
+        if (!session) {
+            alert('Não há mesa vinculada.');
+            return;
+        }
+        try {
+            const newPool = await createPool(total, payAmount, session.sessionId);
+            setPool(newPool);
+        } catch (e) {
+            alert(e.message || 'Erro ao criar Pool.');
+        }
     };
 
     const handleStripeCheckout = async (amountToPay) => {
@@ -59,8 +88,8 @@ const Bill = () => {
                 json: {
                     items: orders.map(o => ({
                         name: o.name + (o.selectedAddons?.length ? ` (+ ${o.selectedAddons.map(a => a.name).join(', ')})` : ''),
-                        price: o.finalPrice || o.price,
-                        quantity: o.quantity
+                        price: parseFloat(o.finalPrice ?? o.price ?? 0),
+                        quantity: o.quantity ?? o.quantidade ?? 1
                     })),
                     tip: waiterTip,
                     appTax: appTax
@@ -81,14 +110,24 @@ const Bill = () => {
         setOpenSnackbar(true);
     };
 
+    const handleLeaveTable = () => {
+        clearTableSession();
+        window.location.href = '/menu';
+    };
+
     if (orders.length === 0) {
         return (
             <Box sx={{ textAlign: 'center', mt: 10 }}>
                 <Typography variant="h6" color="text.secondary">Sua conta está vazia.</Typography>
                 <Typography variant="body2" color="text.secondary">Apenas itens marcados como 'Entregue' ou 'Pronto' aparecem aqui.</Typography>
+                <Button sx={{ mt: 3 }} onClick={handleLeaveTable} variant="outlined" color="primary">
+                    Sair da Mesa
+                </Button>
             </Box>
         );
     }
+
+    const isFullyPaid = pool?.isPaid || false;
 
     return (
         <Box sx={{ pb: 6 }}>
@@ -102,7 +141,7 @@ const Bill = () => {
                         <React.Fragment key={index}>
                             <ListItem sx={{ px: 0, py: 1.5, alignItems: 'flex-start' }}>
                                 <ListItemText
-                                    primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity}x {item.name}</Typography>}
+                                    primary={<Typography component="span" sx={{ fontWeight: 700 }}>{item.quantity ?? item.quantidade ?? 1}x {item.name}</Typography>}
                                     secondary={
                                         <Box component="span" sx={{ display: 'block' }}>
                                             {item.selectedAddons && item.selectedAddons.length > 0 && (
@@ -118,7 +157,7 @@ const Bill = () => {
                                         </Box>
                                     }
                                 />
-                                <Typography sx={{ fontWeight: 800 }}>R$ {((item.finalPrice || item.price) * item.quantity).toFixed(2)}</Typography>
+                                <Typography sx={{ fontWeight: 800 }}>R$ {(parseFloat(item.finalPrice ?? item.price ?? 0) * (item.quantity ?? item.quantidade ?? 1)).toFixed(2)}</Typography>
                             </ListItem>
                         </React.Fragment>
                     ))}
@@ -177,7 +216,11 @@ const Bill = () => {
                             type="number"
                             size="small"
                             value={myPayment}
-                            onChange={(e) => setMyPayment(e.target.value)}
+                            onChange={(e) => {
+                                let val = parseFloat(e.target.value);
+                                if (val > total) val = total;
+                                setMyPayment(val.toString());
+                            }}
                             InputProps={{
                                 startAdornment: <InputAdornment position="start">R$</InputAdornment>,
                             }}
@@ -236,25 +279,47 @@ const Bill = () => {
                 </Card>
             )}
 
-            <Stack spacing={2}>
-                <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    disabled={!!pool}
-                    startIcon={<CreditCard size={20} />}
-                    onClick={() => handleStripeCheckout(total)}
-                    sx={{
-                        height: 60,
-                        fontSize: '1.1rem',
-                        bgcolor: '#1A1A1A',
-                        borderRadius: 4,
-                        '&:hover': { bgcolor: '#000000' }
-                    }}
-                >
-                    {pool ? 'Pool Ativo' : 'Pagar Integral (Stripe)'}
-                </Button>
-            </Stack>
+            {!isFullyPaid ? (
+                <Stack spacing={2}>
+                    <Button
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        disabled={!!pool}
+                        startIcon={<CreditCard size={20} />}
+                        onClick={() => handleStripeCheckout(total)}
+                        sx={{
+                            height: 60,
+                            fontSize: '1.1rem',
+                            bgcolor: '#1A1A1A',
+                            borderRadius: 4,
+                            '&:hover': { bgcolor: '#000000' }
+                        }}
+                    >
+                        {pool ? 'Pool Ativo' : 'Pagar Integral (Stripe)'}
+                    </Button>
+                </Stack>
+            ) : (
+                <Stack spacing={2} sx={{ mt: 4 }}>
+                    <Button
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        startIcon={<LogOut size={20} />}
+                        onClick={handleLeaveTable}
+                        sx={{
+                            height: 60,
+                            fontSize: '1.1rem',
+                            bgcolor: '#4caf50',
+                            borderRadius: 4,
+                            fontWeight: 800,
+                            '&:hover': { bgcolor: '#388e3c' }
+                        }}
+                    >
+                        Sair da Mesa
+                    </Button>
+                </Stack>
+            )}
 
             <Snackbar
                 open={openSnackbar}
