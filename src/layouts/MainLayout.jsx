@@ -145,7 +145,7 @@ const MainLayout = () => {
                         }}
                         onClick={() => navigate('/')}
                     >
-                        {restaurantSlug ? restaurantSlug.toUpperCase() : 'RESTO'} <Box component="span" sx={{ color: 'var(--primary)' }}>HUB</Box>
+                        {restaurantSlug ? restaurantSlug.toUpperCase() : 'UTABLE'} <Box component="span" sx={{ color: 'var(--primary)' }}>HUB</Box>
                     </Typography>
 
                     {tableSession ? (
