@@ -25,7 +25,7 @@ const Login = () => {
             } else if (loggedUser.role === 'COZINHA') {
                 navigate('/admin/kitchen');
             } else {
-                navigate('/menu'); // Clientes vão para o cardápio
+                navigate('/'); // Clientes vão para o hub
             }
 
         } catch (err) {
@@ -127,10 +127,10 @@ const Login = () => {
                 variant="outlined"
                 fullWidth
                 startIcon={<ArrowLeft size={18} />}
-                onClick={() => navigate('/menu')}
+                onClick={() => navigate('/')}
                 sx={{ color: '#757575', borderColor: '#E5E7EB', fontWeight: 700 }}
             >
-                Voltar ao Cardápio
+                Voltar ao Início
             </Button>
         </Stack>
     );
