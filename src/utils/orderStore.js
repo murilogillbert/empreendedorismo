@@ -41,35 +41,13 @@ export const updateOrderStatus = async (orderId, newStatus) => {
     }
 };
 
-export const clearOrders = () => {
-};
+export const clearOrders = () => { };
+
 // --- Pools Logic ---
 
-export const getPools = () => {
-    return {};
-};
-
-export const createPool = async (totalAmount, baseAmount, sessionId) => {
-    if (!sessionId) throw new Error("Mesa não identificada");
-    try {
-        const response = await api.post('pool/create', { json: { totalAmount, baseAmount, sessionId } }).json();
-        return response.pool;
-    } catch (error) {
-        console.error('Error creating pool:', error);
-        throw error;
-    }
-};
-
-export const getPool = async (poolId) => {
-    try {
-        const response = await api.get(`pool/${poolId}`).json();
-        return response;
-    } catch (error) {
-        console.error('Error fetching pool:', error);
-        return null;
-    }
-};
-
+/**
+ * Busca a pool PENDENTE ativa de uma sessão (retorna null se não houver)
+ */
 export const getPoolBySession = async (sessionId) => {
     try {
         const response = await api.get(`pool/session/${sessionId}`).json();
@@ -80,7 +58,73 @@ export const getPoolBySession = async (sessionId) => {
     }
 };
 
-export const addContribution = async () => {
-    // Replaced by calling Stripe Checkout directly in Pool.jsx
-    throw new Error("Use call to /api/pool/checkout directly in the component");
+/**
+ * Lista TODAS as pools de uma sessão (abertas + fechadas/pagas)
+ */
+export const getAllPools = async (sessionId) => {
+    try {
+        const response = await api.get(`pool/session/${sessionId}/all`).json();
+        return response.pools || [];
+    } catch (error) {
+        console.error('Error fetching all pools for session:', error);
+        return [];
+    }
+};
+
+/**
+ * Cria uma nova pool (ou retorna a existente se já houver PENDENTE).
+ * Aceita orderItemIds para vincular itens automaticamente.
+ */
+export const createPool = async (totalAmount, baseAmount, sessionId, orderItemIds = []) => {
+    if (!sessionId) throw new Error("Mesa não identificada");
+    try {
+        const response = await api.post('pool/create', {
+            json: { totalAmount, baseAmount, sessionId, orderItemIds }
+        }).json();
+        return response.pool;
+    } catch (error) {
+        console.error('Error creating pool:', error);
+        throw error;
+    }
+};
+
+/**
+ * Busca os detalhes de uma pool por ID (para a página Pool.jsx)
+ */
+export const getPool = async (poolId) => {
+    try {
+        const response = await api.get(`pool/${poolId}`).json();
+        return response;
+    } catch (error) {
+        console.error('Error fetching pool:', error);
+        return null;
+    }
+};
+
+/**
+ * Remove um item de uma pool PENDENTE e recalcula o total
+ */
+export const removePoolItem = async (poolId, orderItemId) => {
+    try {
+        const response = await api.delete(`pool/${poolId}/item/${orderItemId}`).json();
+        return response;
+    } catch (error) {
+        console.error('Error removing item from pool:', error);
+        throw error;
+    }
+};
+
+/**
+ * Inicia o checkout Stripe para contribuição na pool
+ */
+export const startPoolCheckout = async (poolId, amount, contributorName) => {
+    const data = await ky.post('http://localhost:4242/api/pool/checkout', {
+        json: {
+            poolId,
+            amount,
+            contributorName,
+            itemName: `Contribuição Mesa - ${contributorName}`
+        }
+    }).json();
+    return data.url;
 };

@@ -228,6 +228,17 @@ CREATE TABLE taxas_transacao (
 );
 
 -- =====================================================
+-- TABELA: pool_itens (vínculo entre pedidos_itens e pagamentos/pools)
+-- =====================================================
+CREATE TABLE pool_itens (
+    id_pool_item SERIAL PRIMARY KEY,
+    id_pagamento INTEGER NOT NULL REFERENCES pagamentos(id_pagamento) ON DELETE CASCADE,
+    id_pedido_item INTEGER NOT NULL REFERENCES pedidos_itens(id_pedido_item) ON DELETE CASCADE,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(id_pedido_item) -- cada item só pode estar em 1 pool ativa por vez
+);
+
+-- =====================================================
 -- TABELA: funcionarios_restaurante
 -- =====================================================
 CREATE TABLE funcionarios_restaurante (
