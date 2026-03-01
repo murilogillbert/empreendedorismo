@@ -66,9 +66,12 @@ const Orders = () => {
     };
 
     const handleStatusChange = async (newStatus) => {
+        const session = getTableSession();
         await updateOrderStatus(selectedOrderId, newStatus);
-        const updated = await getOrders(); // Refresh list from server
-        setOrders(updated);
+        if (session) {
+            const updated = await getOrders(session.sessionId);
+            setOrders(updated);
+        }
         handleMenuClose();
     };
 

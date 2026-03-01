@@ -436,6 +436,7 @@ app.get('/api/orders/:sessionId', async (req, res) => {
                 p.id_pedido as id,
                 p.status,
                 p.criado_em as timestamp,
+                pi.id_pedido_item as "orderItemId",
                 pi.quantidade as quantity,
                 pi.valor_unitario_base as price,
                 pi.final_price as "finalPrice",
@@ -562,17 +563,24 @@ app.get('/api/pool/:id', async (req, res) => {
     }
 });
 
-// GET /api/pool/session/:sessionId -> Busca pool pendente para uma sessão (mesa)
+// GET /api/pool/session/:sessionId -> Busca pool PENDENTE ativa para uma sessão (mesa)
 app.get('/api/pool/session/:sessionId', async (req, res) => {
     try {
         const sessionId = req.params.sessionId;
-        const poolRes = await pool.query("SELECT * FROM pagamentos WHERE id_sessao = $1 AND status IN ('PENDENTE', 'CAPTURADO') ORDER BY criado_em DESC LIMIT 1", [sessionId]);
+        // Busca apenas a pool PENDENTE mais recente (não mistura com CAPTURADO)
+        const poolRes = await pool.query(
+            "SELECT * FROM pagamentos WHERE id_sessao = $1 AND status = 'PENDENTE' ORDER BY criado_em DESC LIMIT 1",
+            [sessionId]
+        );
         if (poolRes.rows.length === 0) return res.status(200).json({ pool: null });
 
         const poolData = poolRes.rows[0];
         const poolId = poolData.id_pagamento;
 
-        const contributionsRes = await pool.query('SELECT nome_contribuinte, valor, status, criado_em FROM pagamentos_divisoes WHERE id_pagamento = $1 ORDER BY criado_em DESC', [poolId]);
+        const contributionsRes = await pool.query(
+            'SELECT nome_contribuinte, valor, status, criado_em FROM pagamentos_divisoes WHERE id_pagamento = $1 ORDER BY criado_em DESC',
+            [poolId]
+        );
         const contributions = contributionsRes.rows.map(c => ({
             contributorName: c.nome_contribuinte,
             amount: parseFloat(c.valor),
@@ -580,15 +588,27 @@ app.get('/api/pool/session/:sessionId', async (req, res) => {
             timestamp: c.criado_em
         }));
 
-        const initialPaid = contributions.reduce((acc, c) => acc + c.amount, 0);
+        // Buscar itens vinculados a esta pool
+        const itemsRes = await pool.query(
+            `SELECT pi2.id_pedido_item as "orderItemId", ci.nome as name, pi2.final_price as "finalPrice", pi2.quantidade as quantity
+             FROM pool_itens pli
+             JOIN pedidos_itens pi2 ON pli.id_pedido_item = pi2.id_pedido_item
+             JOIN cardapio_itens ci ON pi2.id_item = ci.id_item
+             WHERE pli.id_pagamento = $1`,
+            [poolId]
+        );
+
+        const paid = contributions.filter(c => ['PAGO','AUTORIZADO','CAPTURADO'].includes(c.status)).reduce((acc, c) => acc + c.amount, 0);
         res.json({
             pool: {
                 id: poolId,
                 totalAmount: parseFloat(poolData.valor_total),
-                initialPaid,
-                remainingAmount: Math.max(0, parseFloat(poolData.valor_total) - initialPaid),
+                paid,
+                remainingAmount: Math.max(0, parseFloat(poolData.valor_total) - paid),
                 contributions,
-                isPaid: poolData.status === 'CAPTURADO'
+                items: itemsRes.rows,
+                isPaid: poolData.status === 'CAPTURADO',
+                status: poolData.status
             }
         });
     } catch (e) {
@@ -596,26 +616,198 @@ app.get('/api/pool/session/:sessionId', async (req, res) => {
     }
 });
 
+// GET /api/pool/session/:sessionId/all -> Lista TODAS as pools da sessão (abertas + fechadas)
+app.get('/api/pool/session/:sessionId/all', async (req, res) => {
+    try {
+        const sessionId = req.params.sessionId;
+        const poolsRes = await pool.query(
+            "SELECT * FROM pagamentos WHERE id_sessao = $1 ORDER BY criado_em DESC",
+            [sessionId]
+        );
+
+        const pools = await Promise.all(poolsRes.rows.map(async (poolData) => {
+            const poolId = poolData.id_pagamento;
+
+            const contributionsRes = await pool.query(
+                'SELECT nome_contribuinte, valor, status, criado_em FROM pagamentos_divisoes WHERE id_pagamento = $1 ORDER BY criado_em DESC',
+                [poolId]
+            );
+            const contributions = contributionsRes.rows.map(c => ({
+                contributorName: c.nome_contribuinte,
+                amount: parseFloat(c.valor),
+                status: c.status,
+                timestamp: c.criado_em
+            }));
+
+            const itemsRes = await pool.query(
+                `SELECT pi2.id_pedido_item as "orderItemId", ci.nome as name, pi2.final_price as "finalPrice", pi2.quantidade as quantity
+                 FROM pool_itens pli
+                 JOIN pedidos_itens pi2 ON pli.id_pedido_item = pi2.id_pedido_item
+                 JOIN cardapio_itens ci ON pi2.id_item = ci.id_item
+                 WHERE pli.id_pagamento = $1`,
+                [poolId]
+            );
+
+            const paid = contributions.filter(c => ['PAGO','AUTORIZADO','CAPTURADO'].includes(c.status)).reduce((acc, c) => acc + c.amount, 0);
+            return {
+                id: poolId,
+                totalAmount: parseFloat(poolData.valor_total),
+                paid,
+                remainingAmount: Math.max(0, parseFloat(poolData.valor_total) - paid),
+                contributions,
+                items: itemsRes.rows,
+                isPaid: poolData.status === 'CAPTURADO',
+                status: poolData.status,
+                criado_em: poolData.criado_em
+            };
+        }));
+
+        res.json({ pools });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // POST /api/pool/create
+// Aceita orderItemIds opcional para vincular itens à pool via pool_itens
+// Se já existir pool PENDENTE para a sessão, retorna ela (não duplica)
 app.post('/api/pool/create', async (req, res) => {
-    const { totalAmount, baseAmount, sessionId } = req.body;
+    const { totalAmount, baseAmount, sessionId, orderItemIds } = req.body;
 
     if (!sessionId) {
         return res.status(400).json({ error: 'Sessão da mesa é obrigatória' });
     }
 
+    const client = await pool.connect();
     try {
-        // Find existing session
-        const sessionRes = await pool.query("SELECT id_sessao FROM sessoes WHERE id_sessao = $1 AND status = 'ABERTA'", [sessionId]);
-        if (sessionRes.rows.length === 0) return res.status(400).json({ error: 'Sessão inválida ou fechada' });
+        await client.query('BEGIN');
 
-        const newPoolRes = await pool.query(
-            "INSERT INTO pagamentos (id_sessao, valor_total, status, metodo) VALUES ($1, $2, 'PENDENTE', 'STRIPE') RETURNING id_pagamento",
-            [sessionId, totalAmount]
+        // Verificar se sessão está aberta
+        const sessionRes = await client.query(
+            "SELECT id_sessao FROM sessoes WHERE id_sessao = $1 AND status = 'ABERTA'",
+            [sessionId]
         );
-        res.json({ pool: { id: newPoolRes.rows[0].id_pagamento, totalAmount, remainingAmount: totalAmount } });
+        if (sessionRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Sessão inválida ou fechada' });
+        }
+
+        // Verificar se já existe pool PENDENTE para esta sessão
+        const existingPoolRes = await client.query(
+            "SELECT id_pagamento, valor_total FROM pagamentos WHERE id_sessao = $1 AND status = 'PENDENTE' ORDER BY criado_em DESC LIMIT 1",
+            [sessionId]
+        );
+
+        let poolId, finalTotalAmount;
+
+        if (existingPoolRes.rows.length > 0) {
+            // Retornar pool existente sem criar nova
+            poolId = existingPoolRes.rows[0].id_pagamento;
+            finalTotalAmount = parseFloat(existingPoolRes.rows[0].valor_total);
+            console.log(`[Pool] Retornando pool existente ID ${poolId} para sessão ${sessionId}`);
+        } else {
+            // Calcular total a partir dos itens se orderItemIds for fornecido
+            let computedTotal = totalAmount;
+            if (orderItemIds && orderItemIds.length > 0) {
+                const itemsRes = await client.query(
+                    'SELECT COALESCE(SUM(final_price * quantidade), 0) as total FROM pedidos_itens WHERE id_pedido_item = ANY($1)',
+                    [orderItemIds]
+                );
+                computedTotal = parseFloat(itemsRes.rows[0].total) || totalAmount;
+            }
+            finalTotalAmount = computedTotal;
+
+            // Criar nova pool
+            const newPoolRes = await client.query(
+                "INSERT INTO pagamentos (id_sessao, valor_total, status, metodo) VALUES ($1, $2, 'PENDENTE', 'STRIPE') RETURNING id_pagamento",
+                [sessionId, finalTotalAmount]
+            );
+            poolId = newPoolRes.rows[0].id_pagamento;
+            console.log(`[Pool] Nova pool ID ${poolId} criada para sessão ${sessionId}`);
+        }
+
+        // Vincular itens à pool (ignorar conflitos de UNIQUE — item já vinculado fica na pool que estava)
+        if (orderItemIds && orderItemIds.length > 0) {
+            for (const itemId of orderItemIds) {
+                await client.query(
+                    'INSERT INTO pool_itens (id_pagamento, id_pedido_item) VALUES ($1, $2) ON CONFLICT (id_pedido_item) DO NOTHING',
+                    [poolId, itemId]
+                );
+            }
+            // Recalcular valor_total da pool com base nos itens agora vinculados
+            const totalRes = await client.query(
+                `SELECT COALESCE(SUM(pi2.final_price * pi2.quantidade), 0) as total
+                 FROM pool_itens pli
+                 JOIN pedidos_itens pi2 ON pli.id_pedido_item = pi2.id_pedido_item
+                 WHERE pli.id_pagamento = $1`,
+                [poolId]
+            );
+            finalTotalAmount = parseFloat(totalRes.rows[0].total) || finalTotalAmount;
+            await client.query('UPDATE pagamentos SET valor_total = $1 WHERE id_pagamento = $2', [finalTotalAmount, poolId]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ pool: { id: poolId, totalAmount: finalTotalAmount, remainingAmount: finalTotalAmount } });
     } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('Error creating pool:', e);
         res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// DELETE /api/pool/:poolId/item/:orderItemId — Remove item de pool PENDENTE
+// Recalcula o valor_total da pool após remoção
+app.delete('/api/pool/:poolId/item/:orderItemId', async (req, res) => {
+    const { poolId, orderItemId } = req.params;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Verificar se a pool está PENDENTE
+        const poolCheck = await client.query(
+            "SELECT status, valor_total FROM pagamentos WHERE id_pagamento = $1",
+            [poolId]
+        );
+        if (poolCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Pool não encontrada' });
+        }
+        if (poolCheck.rows[0].status !== 'PENDENTE') {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Só é possível remover itens de pools com status PENDENTE' });
+        }
+
+        // Remover vínculo
+        const deleteRes = await client.query(
+            'DELETE FROM pool_itens WHERE id_pagamento = $1 AND id_pedido_item = $2 RETURNING id_pool_item',
+            [poolId, orderItemId]
+        );
+        if (deleteRes.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Item não está vinculado a esta pool' });
+        }
+
+        // Recalcular valor_total da pool
+        const totalRes = await client.query(
+            `SELECT COALESCE(SUM(pi2.final_price * pi2.quantidade), 0) as total
+             FROM pool_itens pli
+             JOIN pedidos_itens pi2 ON pli.id_pedido_item = pi2.id_pedido_item
+             WHERE pli.id_pagamento = $1`,
+            [poolId]
+        );
+        const newTotal = parseFloat(totalRes.rows[0].total);
+        await client.query('UPDATE pagamentos SET valor_total = $1 WHERE id_pagamento = $2', [newTotal, poolId]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, newTotal });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('Error removing item from pool:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 

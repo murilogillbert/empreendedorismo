@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import ky from 'ky';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box,
@@ -16,7 +15,7 @@ import {
     CircularProgress
 } from '@mui/material';
 import { Users2, CreditCard, ArrowLeft } from 'lucide-react';
-import { getPool, addContribution } from '../utils/orderStore';
+import { getPool, startPoolCheckout } from '../utils/orderStore';
 
 const Pool = () => {
     const { poolId } = useParams();
@@ -55,20 +54,11 @@ const Pool = () => {
         }
 
         try {
-            // Reusing the backend logic but customized for a pool payment
-            const data = await ky.post('http://localhost:4242/api/pool/checkout', {
-                json: {
-                    poolId: poolId,
-                    amount: payAmount,
-                    contributorName: name,
-                    itemName: `Contribuição Mesa - ${name}`
-                }
-            }).json();
-
-            window.location.href = data.url;
+            const url = await startPoolCheckout(poolId, payAmount, name);
+            window.location.href = url;
         } catch (err) {
             console.error("Stripe Checkout Error:", err);
-            alert(`Erro no pagamento: ${err.message}. Verifique se o servidor backend está rodando no porto 3001.`);
+            alert(`Erro no pagamento: ${err.message}. Verifique se o servidor backend está rodando.`);
         }
     };
 
