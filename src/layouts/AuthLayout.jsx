@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Box, Container, IconButton, Typography } from '@mui/material';
+import { Box, Container, IconButton, Typography, Card } from '@mui/material';
 import { ChevronLeft } from 'lucide-react';
 
 const AuthLayout = () => {
