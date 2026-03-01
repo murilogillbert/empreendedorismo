@@ -1,6 +1,6 @@
 const USER_KEY = 'restaurant_user_v1';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4242').replace(/\/$/, '');
 const API_URL = `${BASE_URL}/api`;
 
 export const getCurrentUser = () => {
@@ -30,7 +30,7 @@ export const logoutUser = () => {
 
 export const registerUser = async (userData) => {
     try {
-        const response = await fetch(`${API_URL}/auth/login`, {
+        const response = await fetch(`${API_URL}/auth/register`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

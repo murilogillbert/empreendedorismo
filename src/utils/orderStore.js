@@ -1,6 +1,6 @@
 import ky from 'ky';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4242').replace(/\/$/, '');
 const API_URL = `${BASE_URL}/api`;
 
 const api = ky.create({
