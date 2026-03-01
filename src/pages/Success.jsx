@@ -19,45 +19,25 @@ const Success = () => {
             if (hasFired.current) return;
             hasFired.current = true;
 
-            if (type === 'direct') {
-                // Pagamento integral direto — registrar no BD sem fechar a sessão
-                const sessionId = searchParams.get('session_id');
-                const userId = searchParams.get('user_id');
-                const amount = searchParams.get('amount');
+            const poolId = searchParams.get('pool_id');
+            const amount = searchParams.get('amount');
+            const name = searchParams.get('name');
+            const userId = searchParams.get('user_id');
 
-                if (sessionId && amount) {
-                    try {
-                        await ky.post('http://localhost:4242/api/payment/direct/confirm', {
-                            json: {
-                                sessionId: parseInt(sessionId),
-                                userId: userId ? parseInt(userId) : null,
-                                amount: parseFloat(amount)
-                            }
-                        });
-                    } catch (e) {
-                        console.error('Error confirming direct payment:', e);
-                    }
-                }
-            } else {
-                // Pagamento via pool — fluxo existente
-                const poolId = searchParams.get('pool_id');
-                const amount = searchParams.get('amount');
-                const name = searchParams.get('name');
-                const userId = searchParams.get('user_id');
-
-                if (poolId && amount && name) {
-                    try {
-                        await ky.post('http://localhost:4242/api/pool/confirm', {
-                            json: {
-                                poolId,
-                                amount: parseFloat(amount),
-                                contributorName: name,
-                                userId: userId ? parseInt(userId) : null
-                            }
-                        });
-                    } catch (e) {
-                        console.error('Error confirming pool payment:', e);
-                    }
+            if (poolId && amount && name) {
+                try {
+                    // Agora unificado: tanto direto quanto pool usam /api/pool/confirm
+                    // porque agora o 'Pagar Integral' também cria uma pool prévia.
+                    await ky.post('http://localhost:4242/api/pool/confirm', {
+                        json: {
+                            poolId,
+                            amount: parseFloat(amount),
+                            contributorName: name,
+                            userId: userId ? parseInt(userId) : null
+                        }
+                    });
+                } catch (e) {
+                    console.error('Error confirming payment:', e);
                 }
             }
         };
