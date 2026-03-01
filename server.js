@@ -325,10 +325,10 @@ app.get('/api/restaurants/nearby', async (req, res) => {
                     (
                         6371 * acos(
                             cos(radians($1)) * 
-                            cos(radians(r.latitude)) * 
-                            cos(radians(r.longitude) - radians($2)) + 
+                            cos(radians(CAST(r.latitude AS NUMERIC))) * 
+                            cos(radians(CAST(r.longitude AS NUMERIC)) - radians($2)) + 
                             sin(radians($1)) * 
-                            sin(radians(r.latitude))
+                            sin(radians(CAST(r.latitude AS NUMERIC)))
                         )
                     ) AS distance
                 FROM restaurantes r

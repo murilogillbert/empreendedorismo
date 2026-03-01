@@ -78,8 +78,8 @@ CREATE TABLE restaurantes (
     logradouro VARCHAR(200) NULL,
     cidade VARCHAR(100) NULL,
     estado VARCHAR(2) NULL,
-    latitude DECIMAL(10, 8) NULL,
-    longitude DECIMAL(11, 8) NULL,
+    latitude VARCHAR(50) NULL,
+    longitude VARCHAR(50) NULL,
     slug VARCHAR(100) NULL UNIQUE,
     horario_fechamento TIME NULL,
     ativo BOOLEAN NOT NULL DEFAULT true
@@ -249,7 +249,7 @@ EXECUTE FUNCTION atualizar_timestamp();
 const SEED_SQL = `
 -- Restaurante principal
 INSERT INTO restaurantes (id_restaurante, nome_fantasia, cnpj, logradouro, cidade, estado, latitude, longitude, slug, horario_fechamento)
-VALUES (1, 'Vite Gourmet Burger', '12.345.678/0001-90', 'Av. Paulista, 1000', 'São Paulo', 'SP', -23.561414, -46.656461, 'vite-gourmet', '23:00:00')
+VALUES (1, 'Vite Gourmet Burger', '12.345.678/0001-90', 'Av. Paulista, 1000', 'São Paulo', 'SP', '-15.608240785072658', '-56.06942710159583', 'vite-gourmet', '23:00:00')
 ON CONFLICT (id_restaurante) DO NOTHING;
 
 -- Reinicia a sequência para garantir que o id correto seja usado
