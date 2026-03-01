@@ -1,5 +1,8 @@
 export const TABLE_KEY = 'restaurant_table_session_v1';
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+const API_URL = `${BASE_URL}/api`;
+
 export const getTableSession = () => {
     const saved = localStorage.getItem(TABLE_KEY);
     return saved ? JSON.parse(saved) : null;
@@ -15,8 +18,7 @@ export const clearTableSession = () => {
 
 export const joinTable = async (tableCode) => {
     try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
-        const response = await fetch(`${API_URL}/api/session/join`, {
+        const response = await fetch(`${API_URL}/session/join`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

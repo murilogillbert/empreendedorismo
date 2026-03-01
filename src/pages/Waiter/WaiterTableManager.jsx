@@ -35,7 +35,8 @@ const WaiterTableManager = () => {
     // Função para buscar os dados da mesa (separada para podermos recarregar depois de um pedido)
     const fetchTableDetails = async () => {
         try {
-            const data = await ky.get(`http://localhost:4242/api/waiter/tables/${tableId}`).json();
+            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+            const data = await ky.get(`${API_URL}/api/waiter/tables/${tableId}`).json();
             setTableDetails(data);
         } catch (err) {
             console.error("Error fetching table details:", err);

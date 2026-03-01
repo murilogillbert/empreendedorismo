@@ -15,7 +15,8 @@ const WaiterDashboard = () => {
                 // To display tables and their current session status, we need a new backend endpoint
                 // or we can mock the UI until we create it.
                 // For now, let's call a hypothetical endpoint that we'll build next.
-                const data = await ky.get('http://localhost:4242/api/waiter/tables').json();
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+                const data = await ky.get(`${API_URL}/api/waiter/tables`).json();
                 setTables(data);
             } catch (err) {
                 console.error("Error fetching tables for waiter:", err);
