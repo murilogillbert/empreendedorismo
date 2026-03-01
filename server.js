@@ -556,7 +556,7 @@ app.patch('/api/orders/:id/status', async (req, res) => {
 
 app.post('/create-checkout-session', async (req, res) => {
     try {
-        const { items, tip, appTax } = req.body;
+        const { items, tip, appTax, sessionId, userId, total } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ error: 'Nenhum item no pedido' });
@@ -577,9 +577,7 @@ app.post('/create-checkout-session', async (req, res) => {
             line_items.push({
                 price_data: {
                     currency: 'brl',
-                    product_data: {
-                        name: 'Gorjeta Garçom',
-                    },
+                    product_data: { name: 'Gorjeta Garçom' },
                     unit_amount: Math.round(tip * 100),
                 },
                 quantity: 1,
@@ -590,26 +588,88 @@ app.post('/create-checkout-session', async (req, res) => {
             line_items.push({
                 price_data: {
                     currency: 'brl',
-                    product_data: {
-                        name: 'Taxa do App (1%)',
-                    },
+                    product_data: { name: 'Taxa do App (3%)' },
                     unit_amount: Math.round(appTax * 100),
                 },
                 quantity: 1,
             });
         }
 
+        // Build success URL with params for confirmation
+        const totalAmount = total || items.reduce((acc, i) => acc + i.price * i.quantity, 0) + (tip || 0) + (appTax || 0);
+        let successUrl = `${YOUR_DOMAIN}/success?type=direct&amount=${totalAmount.toFixed(2)}`;
+        if (sessionId) successUrl += `&session_id=${sessionId}`;
+        if (userId) successUrl += `&user_id=${userId}`;
+
         const session = await stripe.checkout.sessions.create({
             line_items,
             mode: 'payment',
-            success_url: `${YOUR_DOMAIN}?success=true`,
-            cancel_url: `${YOUR_DOMAIN}?canceled=true`,
+            success_url: successUrl,
+            cancel_url: `${YOUR_DOMAIN}/bill?canceled=true`,
         });
 
         res.json({ url: session.url });
     } catch (error) {
         console.error('Error creating checkout session:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/payment/direct/confirm — Confirma pagamento direto (Pagar Integral)
+// Registra o pagamento no BD sem fechar a sessão
+app.post('/api/payment/direct/confirm', async (req, res) => {
+    const { sessionId, userId, amount } = req.body;
+
+    if (!sessionId || !amount) {
+        return res.status(400).json({ error: 'sessionId e amount são obrigatórios' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // Verificar se a sessão está aberta
+        const sessionCheck = await client.query(
+            "SELECT id_sessao FROM sessoes WHERE id_sessao = $1 AND status = 'ABERTA'",
+            [sessionId]
+        );
+        if (sessionCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Sessão inválida ou fechada' });
+        }
+
+        // Verificar se já existe um pagamento direto para essa sessão (evitar duplicatas)
+        const existingCheck = await client.query(
+            "SELECT id_pagamento FROM pagamentos WHERE id_sessao = $1 AND metodo = 'STRIPE_DIRETO' AND status = 'CAPTURADO' AND criado_em > NOW() - INTERVAL '2 minutes'",
+            [sessionId]
+        );
+        if (existingCheck.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.json({ success: true, duplicate: true });
+        }
+
+        // Criar registro do pagamento
+        const payRes = await client.query(
+            "INSERT INTO pagamentos (id_sessao, valor_total, status, metodo) VALUES ($1, $2, 'CAPTURADO', 'STRIPE_DIRETO') RETURNING id_pagamento",
+            [sessionId, amount]
+        );
+        const paymentId = payRes.rows[0].id_pagamento;
+
+        // Registrar a divisão (100% do pagador)
+        const userName = userId ? null : 'Pagamento integral';
+        await client.query(
+            "INSERT INTO pagamentos_divisoes (id_pagamento, nome_contribuinte, valor, status, id_usuario_pagador) VALUES ($1, $2, $3, 'PAGO', $4)",
+            [paymentId, userName || 'Cliente', amount, userId ? parseInt(userId) : null]
+        );
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('Error confirming direct payment:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 
