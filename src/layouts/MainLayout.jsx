@@ -9,7 +9,7 @@ import {
     BottomNavigationAction,
     Paper
 } from '@mui/material';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, useParams } from 'react-router-dom';
 import {
     UtensilsCrossed,
     ShoppingBag,
@@ -35,12 +35,15 @@ import { getTableSession, joinTable, clearTableSession, callWaiter } from '../ut
 const MainLayout = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { restaurantSlug, tableId } = useParams();
+
+    const basePath = `/${restaurantSlug || 'demo'}${tableId ? `/${tableId}` : ''}`;
 
     const navItems = [
-        { label: 'Menu', icon: <UtensilsCrossed size={20} />, path: '/menu' },
-        { label: 'Orders', icon: <ShoppingBag size={20} />, path: '/orders' },
-        { label: 'Bill', icon: <Receipt size={20} />, path: '/bill' },
-        { label: 'Profile', icon: <UserCircle size={20} />, path: '/profile' },
+        { label: 'Menu', icon: <UtensilsCrossed size={20} />, path: `${basePath}/menu` },
+        { label: 'Orders', icon: <ShoppingBag size={20} />, path: `${basePath}/orders` },
+        { label: 'Bill', icon: <Receipt size={20} />, path: `${basePath}/bill` },
+        { label: 'Profile', icon: <UserCircle size={20} />, path: `${basePath}/profile` },
     ];
 
     const currentPath = location.pathname;
@@ -54,8 +57,21 @@ const MainLayout = () => {
     const [callSuccess, setCallSuccess] = React.useState(false);
 
     React.useEffect(() => {
-        setTableSession(getTableSession());
-    }, []);
+        const checkSession = async () => {
+            let session = getTableSession();
+
+            // Auto-join if URL has tableId but local storage doesn't match
+            if (tableId && (!session || session.tableCode !== tableId.toUpperCase())) {
+                try {
+                    session = await joinTable(tableId.toUpperCase());
+                } catch (e) {
+                    console.error("Auto-join failed via URL", e);
+                }
+            }
+            setTableSession(session);
+        };
+        checkSession();
+    }, [tableId]);
 
     const handleJoinTable = async () => {
         try {
@@ -68,6 +84,10 @@ const MainLayout = () => {
             setTableSession(sessionData);
             setOpenModal(false);
             setTableCode('');
+            // Ensure URL updates to include tableId
+            if (restaurantSlug) {
+                navigate(`/${restaurantSlug}/${sessionData.tableCode}/menu`);
+            }
         } catch (e) {
             setErrorMsg(e.message || 'Erro ao entrar na mesa.');
         }
@@ -76,7 +96,11 @@ const MainLayout = () => {
     const handleLeaveTable = () => {
         clearTableSession();
         setTableSession(null);
-        navigate('/menu');
+        if (restaurantSlug) {
+            navigate(`/${restaurantSlug}/menu`);
+        } else {
+            navigate('/');
+        }
     };
 
     const handleCallWaiter = async () => {
@@ -119,9 +143,9 @@ const MainLayout = () => {
                             gap: 0.5,
                             letterSpacing: -0.5
                         }}
-                        onClick={() => navigate('/menu')}
+                        onClick={() => navigate('/')}
                     >
-                        RESTO <Box component="span" sx={{ color: 'var(--primary)' }}>APP</Box>
+                        {restaurantSlug ? restaurantSlug.toUpperCase() : 'RESTO'} <Box component="span" sx={{ color: 'var(--primary)' }}>HUB</Box>
                     </Typography>
 
                     {tableSession ? (

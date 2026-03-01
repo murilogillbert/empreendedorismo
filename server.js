@@ -250,8 +250,61 @@ app.post('/api/auth/login', async (req, res) => {
 
 // --- MENU CONTEXT ---
 
+// GET /api/restaurants/nearby - Fetch nearby restaurants
+app.get('/api/restaurants/nearby', async (req, res) => {
+    const { lat, lng, radiusKm = 10 } = req.query;
+
+    if (!lat || !lng) {
+        return res.status(400).json({ error: 'Latitude and longitude are required' });
+    }
+
+    try {
+        // Haversine formula directly in SQL
+        const query = `
+            SELECT 
+                r.id_restaurante,
+                r.nome_fantasia as name,
+                r.slug,
+                r.logradouro as address,
+                r.latitude,
+                r.longitude,
+                (
+                    6371 * acos(
+                        cos(radians($1)) * 
+                        cos(radians(r.latitude)) * 
+                        cos(radians(r.longitude) - radians($2)) + 
+                        sin(radians($1)) * 
+                        sin(radians(r.latitude))
+                    )
+                ) AS distance
+            FROM restaurantes r
+            WHERE r.ativo = true AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL
+            HAVING (
+                6371 * acos(
+                    cos(radians($1)) * 
+                    cos(radians(r.latitude)) * 
+                    cos(radians(r.longitude) - radians($2)) + 
+                    sin(radians($1)) * 
+                    sin(radians(r.latitude))
+                )
+            ) <= $3
+            ORDER BY distance ASC;
+        `;
+
+        const result = await pool.query(query, [lat, lng, radiusKm]);
+        res.json(result.rows.map(row => ({
+            ...row,
+            distance: parseFloat(row.distance).toFixed(2)
+        })));
+    } catch (error) {
+        console.error('Error fetching nearby restaurants:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/menu - Fetch full menu with relations
 app.get('/api/menu', async (req, res) => {
+    const { slug } = req.query;
     try {
         const query = `
             SELECT 
@@ -264,10 +317,11 @@ app.get('/api/menu', async (req, res) => {
             LEFT JOIN cardapio_itens_alergenos cia ON i.id_item = cia.id_item
             LEFT JOIN alergenos a ON cia.id_alergeno = a.id_alergeno
             LEFT JOIN cardapio_itens_adicionais ad ON i.id_item = ad.id_item
-            WHERE i.ativo = true
+            JOIN restaurantes r ON i.id_restaurante = r.id_restaurante
+            WHERE i.ativo = true ${slug ? 'AND r.slug = $1' : ''}
             GROUP BY i.id_item
         `;
-        const result = await pool.query(query);
+        const result = await pool.query(query, slug ? [slug] : []);
 
         // Map snake_case to frontend camelCase
         const menu = result.rows.map(row => ({

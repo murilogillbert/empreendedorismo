@@ -5,6 +5,7 @@ import { getCurrentUser } from './utils/userStore'; // Importe a função que pe
 
 import MainLayout from './layouts/MainLayout';
 import AuthLayout from './layouts/AuthLayout';
+import UtableHub from './pages/UtableHub';
 import Menu from './pages/Menu';
 import Orders from './pages/Orders';
 import Bill from './pages/Bill';
@@ -88,9 +89,9 @@ const AdminRoute = () => {
         return <Navigate to="/auth/login" replace />;
     }
 
-    // Se estiver logado, mas for apenas um CLIENTE, manda de volta pro cardápio
+    // Se estiver logado, mas for apenas um CLIENTE, manda de volta pro hub
     if (user.role !== 'ADMIN' && user.role !== 'COZINHA') {
-        return <Navigate to="/menu" replace />;
+        return <Navigate to="/" replace />;
     }
 
     // Se passou nas verificações, libera a catraca!
@@ -105,9 +106,9 @@ const WaiterRoute = () => {
         return <Navigate to="/auth/login" replace />;
     }
 
-    // 2. Se for um CLIENTE comum (ou seja, não for Garçom nem Admin), expulsa para o cardápio
+    // 2. Se for um CLIENTE comum, expulsa para o hub
     if (user.role !== 'GARCOM' && user.role !== 'ADMIN') {
-        return <Navigate to="/menu" replace />;
+        return <Navigate to="/" replace />;
     }
 
     // 3. Se passou, libera o acesso ao terminal!
@@ -120,18 +121,31 @@ function App() {
             <CssBaseline />
             <BrowserRouter>
                 <Routes>
-                    <Route element={<MainLayout />}>
-                        <Route index element={<Navigate to="/menu" replace />} />
+                    {/* Utable Hub / Entry Point */}
+                    <Route path="/" element={<UtableHub />} />
+                    <Route path="/profile" element={<Profile />} />
+
+                    {/* Restaurant Routes: requires slug -> /burger-king/MESA-01/menu */}
+                    <Route path="/:restaurantSlug" element={<MainLayout />}>
+                        <Route index element={<Navigate to="menu" replace />} />
                         <Route path="menu" element={<Menu />} />
                         <Route path="orders" element={<Orders />} />
                         <Route path="bill" element={<Bill />} />
                         <Route path="pool/:poolId" element={<Pool />} />
-                        <Route path="success" element={<Success />} />
+                        {/* Option with Table ID included */}
+                        <Route path=":tableId/menu" element={<Menu />} />
+                        <Route path=":tableId/orders" element={<Orders />} />
+                        <Route path=":tableId/bill" element={<Bill />} />
+                        <Route path=":tableId/pool/:poolId" element={<Pool />} />
+
                         <Route path="profile" element={<Profile />} />
                         <Route path="profile/session/:sessionId" element={<SessionDetail />} />
                     </Route>
 
-                    <Route path="auth" element={<AuthLayout />}>
+                    {/* Global Routes */}
+                    <Route path="/success" element={<Success />} />
+
+                    <Route path="/auth" element={<AuthLayout />}>
                         <Route path="login" element={<Login />} />
                         <Route path="register" element={<Register />} />
                     </Route>
