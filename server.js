@@ -366,6 +366,88 @@ app.post('/api/session/join', async (req, res) => {
     }
 });
 
+// GET /api/user/:userId/history - Fetch session history for a specific user
+app.get('/api/user/:userId/history', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const query = `
+            SELECT DISTINCT
+                s.id_sessao as id,
+                s.criado_em as date,
+                m.identificador_mesa as table,
+                s.status,
+                (
+                    SELECT COALESCE(SUM(pd.valor), 0)
+                    FROM pagamentos p
+                    JOIN pagamentos_divisoes pd ON p.id_pagamento = pd.id_pagamento
+                    WHERE p.id_sessao = s.id_sessao AND pd.id_usuario_pagador = $1 AND pd.status = 'CAPTURADO'
+                ) as user_paid,
+                (
+                    SELECT COALESCE(SUM(pi.final_price * pi.quantidade), 0)
+                    FROM pedidos ped
+                    JOIN pedidos_itens pi ON ped.id_pedido = pi.id_pedido
+                    WHERE ped.id_sessao = s.id_sessao AND ped.status != 'Cancelado'
+                ) as session_total
+            FROM sessoes s
+            JOIN mesas m ON s.id_mesa = m.id_mesa
+            LEFT JOIN pagamentos p ON s.id_sessao = p.id_sessao
+            LEFT JOIN pagamentos_divisoes pd ON p.id_pagamento = pd.id_pagamento
+            WHERE s.id_usuario_criador = $1 OR pd.id_usuario_pagador = $1
+            ORDER BY s.criado_em DESC
+        `;
+        const result = await pool.query(query, [userId]);
+        res.json(result.rows);
+    } catch (e) {
+        console.error('Error fetching user history:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/session/:sessionId/details - Fetch full details of a past session
+app.get('/api/session/:sessionId/details', async (req, res) => {
+    const { sessionId } = req.params;
+    try {
+        const sessionRes = await pool.query(
+            `SELECT s.*, m.identificador_mesa 
+             FROM sessoes s 
+             JOIN mesas m ON s.id_mesa = m.id_mesa 
+             WHERE s.id_sessao = $1`,
+            [sessionId]
+        );
+
+        if (sessionRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Sessão não encontrada' });
+        }
+
+        const ordersRes = await pool.query(
+            `SELECT p.id_pedido, p.status as order_status, pi.id_pedido_item, ci.nome, pi.quantidade, pi.final_price, pi.observacoes
+             FROM pedidos p
+             JOIN pedidos_itens pi ON p.id_pedido = pi.id_pedido
+             JOIN cardapio_itens ci ON pi.id_item = ci.id_item
+             WHERE p.id_sessao = $1 AND p.status != 'Cancelado'`,
+            [sessionId]
+        );
+
+        const paymentsRes = await pool.query(
+            `SELECT pd.nome_contribuinte, pd.valor, pd.status, pd.criado_em, u.nome_completo as user_name
+             FROM pagamentos p
+             JOIN pagamentos_divisoes pd ON p.id_pagamento = pd.id_pagamento
+             LEFT JOIN usuarios u ON pd.id_usuario_pagador = u.id_usuario
+             WHERE p.id_sessao = $1 AND pd.status = 'CAPTURADO'`,
+            [sessionId]
+        );
+
+        res.json({
+            session: sessionRes.rows[0],
+            orders: ordersRes.rows,
+            payments: paymentsRes.rows
+        });
+    } catch (e) {
+        console.error('Error fetching session details:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- ORDER CONTEXT ---
 
 // POST /api/orders - Add to order
@@ -814,7 +896,7 @@ app.delete('/api/pool/:poolId/item/:orderItemId', async (req, res) => {
 // POST /api/pool/checkout
 app.post('/api/pool/checkout', async (req, res) => {
     try {
-        const { poolId, amount, contributorName, itemName } = req.body;
+        const { poolId, amount, contributorName, itemName, userId } = req.body;
 
         const session = await stripe.checkout.sessions.create({
             line_items: [{
@@ -828,8 +910,12 @@ app.post('/api/pool/checkout', async (req, res) => {
             mode: 'payment',
             // IMPORTANT: Holds the funds instead of automatic capture
             payment_intent_data: { capture_method: 'manual' },
-            metadata: { poolId: poolId.toString(), contributorName },
-            success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}`,
+            metadata: {
+                poolId: poolId.toString(),
+                contributorName,
+                userId: userId ? userId.toString() : ''
+            },
+            success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}${userId ? `&user_id=${userId}` : ''}`,
             cancel_url: `${YOUR_DOMAIN}/pool/${poolId}?canceled=true`,
         });
 
@@ -842,7 +928,7 @@ app.post('/api/pool/checkout', async (req, res) => {
 
 // POST /api/pool/confirm - Chamado pelo Success.jsx frontend apos pagamento
 app.post('/api/pool/confirm', async (req, res) => {
-    const { poolId, amount, contributorName } = req.body;
+    const { poolId, amount, contributorName, userId } = req.body;
     const client = await pool.connect();
 
     try {
@@ -851,8 +937,8 @@ app.post('/api/pool/confirm', async (req, res) => {
         // Evita duplicacoes checando se ja existe aquele pagamento praquele nome com mesmo valor nas ultimas horas
         // Num cenário real seria o Webhook do Stripe checando o ID do Intent
         await client.query(
-            "INSERT INTO pagamentos_divisoes (id_pagamento, nome_contribuinte, valor, status) VALUES ($1, $2, $3, 'PAGO')",
-            [poolId, contributorName, amount]
+            "INSERT INTO pagamentos_divisoes (id_pagamento, nome_contribuinte, valor, status, id_usuario_pagador) VALUES ($1, $2, $3, 'PAGO', $4)",
+            [poolId, contributorName, amount, userId || null]
         );
 
         // Checar se completou e precisa alterar a Pool para CAPTURADO

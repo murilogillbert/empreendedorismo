@@ -16,14 +16,16 @@ import {
 } from '@mui/material';
 import { Users2, CreditCard, ArrowLeft } from 'lucide-react';
 import { getPool, startPoolCheckout } from '../utils/orderStore';
+import { getCurrentUser } from '../utils/userStore';
 
 const Pool = () => {
     const { poolId } = useParams();
     const navigate = useNavigate();
     const [pool, setPool] = useState(null);
-    const [amount, setAmount] = useState('');
-    const [name, setName] = useState('');
+    const [contributionAmount, setContributionAmount] = useState(''); // Renamed from 'amount'
+    const [contributorName, setContributorName] = useState(''); // Renamed from 'name'
     const [loading, setLoading] = useState(true);
+    const [checkoutLoading, setCheckoutLoading] = useState(false); // New state variable
 
     useEffect(() => {
         const fetchPool = async () => {
@@ -42,23 +44,32 @@ const Pool = () => {
         return () => clearInterval(intervalId);
     }, [poolId]);
 
-    const handleContribute = async () => {
-        const payAmount = parseFloat(amount);
-        if (!payAmount || payAmount <= 0 || payAmount > pool.remainingAmount) {
+    const handleCheckout = async () => { // Renamed from handleContribute
+        if (!contributionAmount || parseFloat(contributionAmount) <= 0) {
             alert("Valor inválido");
             return;
         }
-        if (!name.trim()) {
+        if (!contributorName.trim()) {
             alert("Informe seu nome");
             return;
         }
 
+        setCheckoutLoading(true);
         try {
-            const url = await startPoolCheckout(poolId, payAmount, name);
+            const user = getCurrentUser();
+            const { url } = await startPoolCheckout({
+                poolId,
+                amount: parseFloat(contributionAmount),
+                contributorName: contributorName || 'Anônimo',
+                itemName: `Contribuição Mesa - Pool #${poolId}`,
+                userId: user?.id
+            });
             window.location.href = url;
         } catch (err) {
             console.error("Stripe Checkout Error:", err);
             alert(`Erro no pagamento: ${err.message}. Verifique se o servidor backend está rodando.`);
+        } finally {
+            setCheckoutLoading(false);
         }
     };
 
@@ -102,21 +113,21 @@ const Pool = () => {
                         <TextField
                             label="Seu Nome"
                             fullWidth
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            value={contributorName}
+                            onChange={(e) => setContributorName(e.target.value)}
                             size="small"
                         />
                         <TextField
                             label="Valor a Pagar (R$)"
                             type="number"
                             fullWidth
-                            value={amount}
+                            value={contributionAmount}
                             onChange={(e) => {
                                 let val = parseFloat(e.target.value);
                                 if (val > pool.remainingAmount) {
                                     val = pool.remainingAmount;
                                 }
-                                setAmount(val.toString());
+                                setContributionAmount(val.toString());
                             }}
                             size="small"
                             placeholder={`Máx R$ ${(pool.remainingAmount || 0).toFixed(2)}`}
@@ -125,8 +136,9 @@ const Pool = () => {
                             variant="contained"
                             fullWidth
                             size="large"
-                            startIcon={<CreditCard size={20} />}
-                            onClick={handleContribute}
+                            disabled={checkoutLoading}
+                            startIcon={checkoutLoading ? <CircularProgress size={20} color="inherit" /> : <CreditCard size={20} />}
+                            onClick={handleCheckout}
                             sx={{
                                 bgcolor: '#FF8C00',
                                 height: 50,
@@ -134,7 +146,7 @@ const Pool = () => {
                                 '&:hover': { bgcolor: '#E67E00' }
                             }}
                         >
-                            Pagar Minha Parte
+                            {checkoutLoading ? 'Processando...' : 'Pagar Minha Parte'}
                         </Button>
                     </Stack>
                 </Card>
