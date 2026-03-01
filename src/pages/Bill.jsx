@@ -18,12 +18,14 @@ import {
     Snackbar,
     Alert
 } from '@mui/material';
-import { CreditCard, Users2, Copy, Share2, QrCode } from 'lucide-react';
+import { CreditCard, Users2, Copy, Share2, QrCode, LogOut } from 'lucide-react';
 import { getOrders, createPool, getPoolBySession } from '../utils/orderStore';
-import { getTableSession } from '../utils/tableStore';
+import { getTableSession, clearTableSession } from '../utils/tableStore';
 import { QRCodeSVG } from 'qrcode.react';
+import { useNavigate } from 'react-router-dom';
 
 const Bill = () => {
+    const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [waiterTipPercent, setWaiterTipPercent] = useState(10);
     const [myPayment, setMyPayment] = useState('');
@@ -108,14 +110,24 @@ const Bill = () => {
         setOpenSnackbar(true);
     };
 
+    const handleLeaveTable = () => {
+        clearTableSession();
+        window.location.href = '/menu';
+    };
+
     if (orders.length === 0) {
         return (
             <Box sx={{ textAlign: 'center', mt: 10 }}>
                 <Typography variant="h6" color="text.secondary">Sua conta está vazia.</Typography>
                 <Typography variant="body2" color="text.secondary">Apenas itens marcados como 'Entregue' ou 'Pronto' aparecem aqui.</Typography>
+                <Button sx={{ mt: 3 }} onClick={handleLeaveTable} variant="outlined" color="primary">
+                    Sair da Mesa
+                </Button>
             </Box>
         );
     }
+
+    const isFullyPaid = pool?.isPaid || false;
 
     return (
         <Box sx={{ pb: 6 }}>
@@ -204,7 +216,11 @@ const Bill = () => {
                             type="number"
                             size="small"
                             value={myPayment}
-                            onChange={(e) => setMyPayment(e.target.value)}
+                            onChange={(e) => {
+                                let val = parseFloat(e.target.value);
+                                if (val > total) val = total;
+                                setMyPayment(val.toString());
+                            }}
                             InputProps={{
                                 startAdornment: <InputAdornment position="start">R$</InputAdornment>,
                             }}
@@ -263,25 +279,47 @@ const Bill = () => {
                 </Card>
             )}
 
-            <Stack spacing={2}>
-                <Button
-                    variant="contained"
-                    fullWidth
-                    size="large"
-                    disabled={!!pool}
-                    startIcon={<CreditCard size={20} />}
-                    onClick={() => handleStripeCheckout(total)}
-                    sx={{
-                        height: 60,
-                        fontSize: '1.1rem',
-                        bgcolor: '#1A1A1A',
-                        borderRadius: 4,
-                        '&:hover': { bgcolor: '#000000' }
-                    }}
-                >
-                    {pool ? 'Pool Ativo' : 'Pagar Integral (Stripe)'}
-                </Button>
-            </Stack>
+            {!isFullyPaid ? (
+                <Stack spacing={2}>
+                    <Button
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        disabled={!!pool}
+                        startIcon={<CreditCard size={20} />}
+                        onClick={() => handleStripeCheckout(total)}
+                        sx={{
+                            height: 60,
+                            fontSize: '1.1rem',
+                            bgcolor: '#1A1A1A',
+                            borderRadius: 4,
+                            '&:hover': { bgcolor: '#000000' }
+                        }}
+                    >
+                        {pool ? 'Pool Ativo' : 'Pagar Integral (Stripe)'}
+                    </Button>
+                </Stack>
+            ) : (
+                <Stack spacing={2} sx={{ mt: 4 }}>
+                    <Button
+                        variant="contained"
+                        fullWidth
+                        size="large"
+                        startIcon={<LogOut size={20} />}
+                        onClick={handleLeaveTable}
+                        sx={{
+                            height: 60,
+                            fontSize: '1.1rem',
+                            bgcolor: '#4caf50',
+                            borderRadius: 4,
+                            fontWeight: 800,
+                            '&:hover': { bgcolor: '#388e3c' }
+                        }}
+                    >
+                        Sair da Mesa
+                    </Button>
+                </Stack>
+            )}
 
             <Snackbar
                 open={openSnackbar}

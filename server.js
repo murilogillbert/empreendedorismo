@@ -686,5 +686,144 @@ app.post('/api/pool/confirm', async (req, res) => {
     }
 });
 
+// --- WAITER PORTAL ---
+
+// GET /api/waiter/tables - Listagem geral de status para o Dashboard do Garcom
+app.get('/api/waiter/tables', async (req, res) => {
+    try {
+        const query = `
+            SELECT m.id_mesa as mesa_id, m.identificador_mesa as identificador, m.capacidade,
+                   s.id_sessao as sessao_id, s.status,
+                   COUNT(p.id_pedido) as total_pedidos,
+                   COALESCE(SUM(pi.final_price * pi.quantidade), 0) as total_conta
+            FROM mesas m
+            LEFT JOIN sessoes s ON m.id_mesa = s.id_mesa AND s.status = 'ABERTA'
+            LEFT JOIN pedidos p ON s.id_sessao = p.id_sessao
+            LEFT JOIN pedidos_itens pi ON p.id_pedido = pi.id_pedido
+            WHERE m.ativa = true
+            GROUP BY m.id_mesa, s.id_sessao, s.status
+            ORDER BY m.identificador_mesa ASC
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/waiter/tables/:tableId - Detalhes e extrato da conta daquela mesa
+app.get('/api/waiter/tables/:tableId', async (req, res) => {
+    try {
+        const { tableId } = req.params;
+
+        // Dados basiocs da mesa e da sessao aberta
+        const sessionRes = await pool.query(
+            "SELECT id_sessao, status FROM sessoes WHERE id_mesa = $1 AND status = 'ABERTA' LIMIT 1",
+            [tableId]
+        );
+
+        const basicRes = await pool.query("SELECT identificador_mesa FROM mesas WHERE id_mesa = $1", [tableId]);
+        if (basicRes.rows.length === 0) return res.status(404).json({ error: 'Mesa not found' });
+
+        const identificador = basicRes.rows[0].identificador_mesa;
+
+        if (sessionRes.rows.length === 0) {
+            return res.json({ identificador, status: 'LIVRE', pedidos: [], total_pendente: 0 });
+        }
+
+        const sessionId = sessionRes.rows[0].id_sessao;
+
+        // Buscar pedidos
+        const ordersQuery = `
+            SELECT pi.quantidade, pi.final_price as valor_total, p.status, ci.nome as nome_item
+            FROM pedidos p
+            JOIN pedidos_itens pi ON p.id_pedido = pi.id_pedido
+            JOIN cardapio_itens ci ON pi.id_item = ci.id_item
+            WHERE p.id_sessao = $1
+            ORDER BY p.criado_em DESC
+        `;
+        const ordersRes = await pool.query(ordersQuery, [sessionId]);
+
+        // Buscar pendencia da Pool (calculo simulado)
+        let total_pendente = ordersRes.rows.reduce((acc, curr) => acc + parseFloat(curr.valor_total) * curr.quantidade, 0);
+
+        // Se tem pool ativa, abata o que ja pagaram
+        const poolCheckRes = await pool.query("SELECT id_pagamento, valor_total FROM pagamentos WHERE id_sessao = $1 AND status IN ('PENDENTE', 'CAPTURADO') LIMIT 1", [sessionId]);
+        if (poolCheckRes.rows.length > 0) {
+            const poolId = poolCheckRes.rows[0].id_pagamento;
+            const sumRes = await pool.query("SELECT SUM(valor) as total_pago FROM pagamentos_divisoes WHERE id_pagamento = $1", [poolId]);
+            const pago = parseFloat(sumRes.rows[0].total_pago || 0);
+            total_pendente = Math.max(total_pendente - pago, 0);
+        }
+
+        res.json({
+            identificador,
+            status: 'ABERTA',
+            sessao_id: sessionId,
+            pedidos: ordersRes.rows,
+            total_pendente
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/waiter/tables/:tableId/close - Fechar Conta (Forcado pelo garcom)
+app.post('/api/waiter/tables/:tableId/close', async (req, res) => {
+    try {
+        const { tableId } = req.params;
+        await pool.query("UPDATE sessoes SET status = 'FECHADA' WHERE id_mesa = $1 AND status = 'ABERTA'", [tableId]);
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// --- CRON JOBS & AUTOMATION ---
+// Roda a cada 5 minutos para limpar mesas se tiver passado do horario de fechamento + 30m
+setInterval(async () => {
+    try {
+        const restRes = await pool.query("SELECT horario_fechamento FROM restaurantes WHERE id_restaurante = 1 AND horario_fechamento IS NOT NULL");
+        if (restRes.rows.length === 0) return;
+
+        const closeTimeStr = restRes.rows[0].horario_fechamento; // ex: "23:30:00"
+        const [closeHour, closeMinute] = closeTimeStr.split(':').map(Number);
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+
+        // Verifica timezone p/ facilitar comparacao linear no mesmo dia (+30m)
+        const closeTotalMinutes = (closeHour * 60) + closeMinute;
+        const currentTotalMinutes = (currentHour * 60) + currentMinute;
+        const toleranceMinutes = 30;
+
+        let shouldClose = false;
+
+        // Lida com fechamento que cruza a meia-noite (ex: 02:00) vs (23:00)
+        // Uma aborgagem super simples para demo:
+        if (closeHour >= 12) {
+            // Fechamento antes da meia noite (ex 22:00 -> cai as 22:30. Se for 23:59 cai 00:29)
+            if (currentTotalMinutes >= (closeTotalMinutes + toleranceMinutes) || currentHour < 12) {
+                shouldClose = true;
+            }
+        } else {
+            // Restaurante fecha de madrugada (ex 02:00, cai 02:30)
+            if (currentTotalMinutes >= (closeTotalMinutes + toleranceMinutes) && currentHour < 12) {
+                shouldClose = true;
+            }
+        }
+
+        if (shouldClose) {
+            const res = await pool.query("UPDATE sessoes SET status = 'FECHADA' WHERE status = 'ABERTA' RETURNING id_sessao;");
+            if (res.rowCount > 0) {
+                console.log(`[Auto-Close] ${res.rowCount} sessoes foram fechadas por horario de funcionamento excedido.`);
+            }
+        }
+    } catch (e) {
+        console.error('Error on auto-close cron:', e);
+    }
+}, 5 * 60 * 1000); // 5 minutes
+
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

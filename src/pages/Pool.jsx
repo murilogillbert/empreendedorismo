@@ -121,7 +121,13 @@ const Pool = () => {
                             type="number"
                             fullWidth
                             value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
+                            onChange={(e) => {
+                                let val = parseFloat(e.target.value);
+                                if (val > pool.remainingAmount) {
+                                    val = pool.remainingAmount;
+                                }
+                                setAmount(val.toString());
+                            }}
                             size="small"
                             placeholder={`Máx R$ ${(pool.remainingAmount || 0).toFixed(2)}`}
                         />
