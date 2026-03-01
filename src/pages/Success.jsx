@@ -15,12 +15,18 @@ const Success = () => {
             const poolId = searchParams.get('pool_id');
             const amount = searchParams.get('amount');
             const name = searchParams.get('name');
+            const userId = searchParams.get('user_id');
 
             if (poolId && amount && name && !hasFired.current) {
                 hasFired.current = true;
                 try {
                     await ky.post('http://localhost:4242/api/pool/confirm', {
-                        json: { poolId, amount: parseFloat(amount), contributorName: name }
+                        json: {
+                            poolId,
+                            amount: parseFloat(amount),
+                            contributorName: name,
+                            userId: userId ? parseInt(userId) : null
+                        }
                     });
                 } catch (e) {
                     console.error("Error confirming payment in database:", e);

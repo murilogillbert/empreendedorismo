@@ -1,5 +1,4 @@
 const USER_KEY = 'restaurant_user_v1';
-const HISTORY_KEY = 'restaurant_history_v1';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
 
@@ -74,33 +73,27 @@ export const loginUser = async (credentials) => {
     }
 };
 
-export const getOrderHistory = () => {
-    const saved = localStorage.getItem(HISTORY_KEY);
-    return saved ? JSON.parse(saved) : [
-        {
-            id: 'ORD-7721',
-            date: '2024-02-20',
-            total: 85.50,
-            status: 'Finalizado',
-            items: ['Burger Classic', 'Suco de Laranja']
-        },
-        {
-            id: 'ORD-5542',
-            date: '2024-02-15',
-            total: 42.00,
-            status: 'Finalizado',
-            items: ['Salada Caesar']
-        }
-    ];
+export const getOrderHistory = async (userId) => {
+    if (!userId) return [];
+    try {
+        const response = await fetch(`${API_URL}/api/user/${userId}/history`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data;
+    } catch (error) {
+        console.error('Error fetching history:', error);
+        return [];
+    }
 };
 
-export const addToHistory = (order) => {
-    const history = getOrderHistory();
-    history.unshift({
-        ...order,
-        id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-        date: new Date().toISOString().split('T')[0],
-        status: 'Finalizado'
-    });
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+export const fetchSessionDetails = async (sessionId) => {
+    try {
+        const response = await fetch(`${API_URL}/api/session/${sessionId}/details`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        return data;
+    } catch (error) {
+        console.error('Error fetching session details:', error);
+        throw error;
+    }
 };

@@ -34,6 +34,7 @@ const Profile = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [history, setHistory] = useState([]);
+    const [loadingHistory, setLoadingHistory] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
 
@@ -48,7 +49,15 @@ const Profile = () => {
                 email: currentUser.email || '',
                 phone: currentUser.phone || ''
             });
-            setHistory(getOrderHistory());
+
+            // Fetch real history
+            const fetchHistory = async () => {
+                setLoadingHistory(true);
+                const data = await getOrderHistory(currentUser.id);
+                setHistory(data);
+                setLoadingHistory(false);
+            };
+            fetchHistory();
         }
     }, [navigate]);
 
@@ -143,26 +152,48 @@ const Profile = () => {
 
             {/* History Section */}
             <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <History size={22} color="#FF8C00" /> Histórico de Pedidos
+                <History size={22} color="#FF8C00" /> Histórico de Visitas
             </Typography>
             <Card elevation={0} sx={{ borderRadius: 4, border: '1px solid #F0F0F0', mb: 4, overflow: 'hidden' }}>
-                <List disablePadding>
-                    {history.map((order, idx) => (
-                        <React.Fragment key={order.id}>
-                            <ListItem sx={{ py: 2 }}>
-                                <ListItemText
-                                    primary={<Typography sx={{ fontWeight: 700 }}>{order.id}</Typography>}
-                                    secondary={order.date}
-                                />
-                                <Stack alignItems="flex-end" spacing={0.5}>
-                                    <Typography sx={{ fontWeight: 800 }}>R$ {order.total.toFixed(2)}</Typography>
-                                    <Chip label={order.status} size="small" color="success" variant="outlined" sx={{ fontWeight: 700, height: 20 }} />
-                                </Stack>
-                            </ListItem>
-                            {idx < history.length - 1 && <Divider />}
-                        </React.Fragment>
-                    ))}
-                </List>
+                {loadingHistory ? (
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                        <CircularProgress size={24} />
+                    </Box>
+                ) : (
+                    <List disablePadding>
+                        {history.map((session, idx) => (
+                            <React.Fragment key={session.id}>
+                                <ListItem
+                                    button
+                                    onClick={() => navigate(`/profile/session/${session.id}`)}
+                                    sx={{ py: 2, cursor: 'pointer', '&:hover': { bgcolor: '#FAFAFA' } }}
+                                >
+                                    <ListItemText
+                                        primary={<Typography sx={{ fontWeight: 700 }}>Mesa {session.table}</Typography>}
+                                        secondary={new Date(session.date).toLocaleDateString('pt-BR')}
+                                    />
+                                    <Stack alignItems="flex-end" spacing={0.5}>
+                                        <Typography sx={{ fontWeight: 800 }}>R$ {parseFloat(session.user_paid || 0).toFixed(2)}</Typography>
+                                        <Typography variant="caption" color="text.secondary">Total mesa: R$ {parseFloat(session.session_total || 0).toFixed(2)}</Typography>
+                                        <Chip
+                                            label={session.status === 'FECHADA' ? 'Finalizada' : 'Em Aberto'}
+                                            size="small"
+                                            color={session.status === 'FECHADA' ? 'success' : 'warning'}
+                                            variant="outlined"
+                                            sx={{ fontWeight: 700, height: 20 }}
+                                        />
+                                    </Stack>
+                                </ListItem>
+                                {idx < history.length - 1 && <Divider />}
+                            </React.Fragment>
+                        ))}
+                        {history.length === 0 && (
+                            <Typography variant="body2" sx={{ p: 3, textAlign: 'center', color: 'text.secondary' }}>
+                                Nenhuma visita encontrada.
+                            </Typography>
+                        )}
+                    </List>
+                )}
             </Card>
 
             {/* FAQ Section */}
