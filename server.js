@@ -5,6 +5,10 @@ import cors from 'cors';
 import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import dns from 'node:dns';
+
+// Force IPv4 for database connections to avoid ENETUNREACH on environments with partial IPv6 support
+dns.setDefaultResultOrder('ipv4first');
 
 const { Pool } = pg;
 
@@ -17,7 +21,10 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
         rejectUnauthorized: false
-    }
+    },
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
 });
 
 const allowedOrigins = [
