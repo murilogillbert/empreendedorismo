@@ -1446,5 +1446,10 @@ setInterval(async () => {
     }
 }, 60 * 1000); // Run every 1 minute
 
+// Rota de saúde para o Railway confirmar que o servidor e o banco estão bem
+app.get('/', (req, res) => {
+    res.status(200).send('API do Restaurante está Online e Rodando!');
+});
+
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
