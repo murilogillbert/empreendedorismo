@@ -656,11 +656,26 @@ app.post('/api/payment/direct/confirm', async (req, res) => {
         const paymentId = payRes.rows[0].id_pagamento;
 
         // Registrar a divisão (100% do pagador)
-        const userName = userId ? null : 'Pagamento integral';
         await client.query(
             "INSERT INTO pagamentos_divisoes (id_pagamento, nome_contribuinte, valor, status, id_usuario_pagador) VALUES ($1, $2, $3, 'PAGO', $4)",
-            [paymentId, userName || 'Cliente', amount, userId ? parseInt(userId) : null]
+            [paymentId, 'Pagamento Integral', amount, userId ? parseInt(userId) : null]
         );
+
+        // Vincular TODOS os itens ativos da sessão ao pagamento
+        // Isso faz com que sejam filtrados em Bill.jsx como "pagos"
+        const activeItemsRes = await client.query(
+            `SELECT pi.id_pedido_item
+             FROM pedidos p
+             JOIN pedidos_itens pi ON p.id_pedido = pi.id_pedido
+             WHERE p.id_sessao = $1 AND p.status != 'Cancelado'`,
+            [sessionId]
+        );
+        for (const item of activeItemsRes.rows) {
+            await client.query(
+                'INSERT INTO pool_itens (id_pagamento, id_pedido_item) VALUES ($1, $2) ON CONFLICT (id_pedido_item) DO NOTHING',
+                [paymentId, item.id_pedido_item]
+            );
+        }
 
         await client.query('COMMIT');
         res.json({ success: true });

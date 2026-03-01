@@ -44,9 +44,17 @@ const Pool = () => {
         return () => clearInterval(intervalId);
     }, [poolId]);
 
-    const handleCheckout = async () => { // Renamed from handleContribute
-        if (!contributionAmount || parseFloat(contributionAmount) <= 0) {
+    const handleCheckout = async () => {
+        // Normalizar: aceitar vírgula como separador decimal
+        const normalizedAmount = contributionAmount.toString().replace(',', '.');
+        const parsedAmount = parseFloat(normalizedAmount);
+
+        if (!parsedAmount || parsedAmount <= 0) {
             alert("Valor inválido");
+            return;
+        }
+        if (parsedAmount > pool.remainingAmount + 0.01) { // +0.01 de tolerância de float
+            alert(`Valor máximo é R$ ${pool.remainingAmount.toFixed(2)}`);
             return;
         }
         if (!contributorName.trim()) {
@@ -54,12 +62,15 @@ const Pool = () => {
             return;
         }
 
+        // Arredondar para 2 casas decimais antes de enviar
+        const finalAmount = Math.ceil(parsedAmount * 100) / 100;
+
         setCheckoutLoading(true);
         try {
             const user = getCurrentUser();
             const { url } = await startPoolCheckout({
                 poolId,
-                amount: parseFloat(contributionAmount),
+                amount: finalAmount,
                 contributorName: contributorName || 'Anônimo',
                 itemName: `Contribuição Mesa - Pool #${poolId}`,
                 userId: user?.id
@@ -119,18 +130,36 @@ const Pool = () => {
                         />
                         <TextField
                             label="Valor a Pagar (R$)"
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             fullWidth
                             value={contributionAmount}
                             onChange={(e) => {
-                                let val = parseFloat(e.target.value);
-                                if (val > pool.remainingAmount) {
-                                    val = pool.remainingAmount;
+                                // Aceitar vírgula ou ponto como decimal
+                                let raw = e.target.value.replace(',', '.');
+                                // Permitir digitação livre (incluindo strings como "10.")
+                                // mas validar ao sair do campo (onBlur)
+                                setContributionAmount(raw);
+                            }}
+                            onBlur={() => {
+                                // Ao sair do campo: normalizar e truncar a 2 casas decimais
+                                let raw = contributionAmount.replace(',', '.');
+                                let val = parseFloat(raw);
+                                if (isNaN(val) || val <= 0) {
+                                    setContributionAmount('');
+                                    return;
                                 }
-                                setContributionAmount(val.toString());
+                                // Truncar para 2 casas decimais (Math.ceil na 2ª casa)
+                                val = Math.ceil(val * 100) / 100;
+                                // Não pode ultrapassar o valor disponível
+                                if (val > pool.remainingAmount) {
+                                    val = Math.floor(pool.remainingAmount * 100) / 100;
+                                }
+                                setContributionAmount(val.toFixed(2));
                             }}
                             size="small"
                             placeholder={`Máx R$ ${(pool.remainingAmount || 0).toFixed(2)}`}
+                            helperText="Use ponto ou vírgula para decimais (ex: 10,50 ou 10.50)"
                         />
                         <Button
                             variant="contained"
