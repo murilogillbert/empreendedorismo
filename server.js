@@ -6,6 +6,15 @@ import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+// Captura erros que normalmente derrubariam o servidor sem deixar rastro
+process.on('uncaughtException', (err) => {
+    console.error('❌ ERRO CRÍTICO (Uncaught Exception):', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️ AVISO (Unhandled Rejection):', reason);
+});
+
 const { Pool } = pg;
 
 dotenv.config();
@@ -30,7 +39,18 @@ pool.on('error', (err) => {
     console.error('[Pool] Erro inesperado na conexão:', err.message);
 });
 
-app.use(cors());
+// Rota de saúde para o Railway confirmar que o servidor e o banco estão bem
+app.get('/', (req, res) => {
+    res.status(200).send('API do Restaurante está Online e Rodando!');
+});
+
+app.use(cors({
+    origin: ['https://empreendedorismo-omega.vercel.app', 'http://localhost:5173', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+}));
+app.use(express.json());
 app.use(express.static('public'));
 
 // --- STRIPE WEBHOOK ---
@@ -1447,4 +1467,4 @@ setInterval(async () => {
 }, 60 * 1000); // Run every 1 minute
 
 const PORT = process.env.PORT || 4242;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));

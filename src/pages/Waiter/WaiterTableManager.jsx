@@ -35,7 +35,8 @@ const WaiterTableManager = () => {
     // Função para buscar os dados da mesa (separada para podermos recarregar depois de um pedido)
     const fetchTableDetails = async () => {
         try {
-            const data = await ky.get(`http://localhost:4242/api/waiter/tables/${tableId}`).json();
+            const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
+            const data = await ky.get(`${BASE_URL}/api/waiter/tables/${tableId}`).json();
             setTableDetails(data);
         } catch (err) {
             console.error("Error fetching table details:", err);
@@ -53,7 +54,7 @@ const WaiterTableManager = () => {
         setMenuOpen(true);
         if (menuItems.length === 0) {
             try {
-                const data = await ky.get('http://localhost:4242/api/menu').json();
+                const data = await ky.get(`${BASE_URL}/api/menu`).json();
                 setMenuItems(data);
             } catch (err) {
                 console.error('Erro ao buscar cardápio', err);
@@ -74,7 +75,7 @@ const WaiterTableManager = () => {
         try {
             // Replicando a lógica do Menu.jsx: loop para quantidade
             for (let i = 0; i < quantity; i++) {
-                await ky.post('http://localhost:4242/api/orders', {
+                await ky.post(`${BASE_URL}/api/orders`, {
                     json: {
                         item: item,
                         selectedAddons: addons,
@@ -132,7 +133,7 @@ const WaiterTableManager = () => {
         if (!window.confirm('Tem certeza que deseja fechar esta mesa? Os clientes não poderão mais fazer pedidos.')) return;
 
         try {
-            await ky.post(`http://localhost:4242/api/waiter/tables/${tableId}/close`).json();
+            await ky.post(`${BASE_URL}/api/waiter/tables/${tableId}/close`).json();
             alert('Mesa fechada com sucesso!');
             navigate('/waiter');
         } catch (e) {
@@ -144,7 +145,7 @@ const WaiterTableManager = () => {
         if (selectedOrderItemIds.length === 0) return;
         setSubmittingPayment(true);
         try {
-            await ky.post(`http://localhost:4242/api/waiter/payment/confirm`, {
+            await ky.post(`${BASE_URL}/api/waiter/payment/confirm`, {
                 json: {
                     sessionId: tableDetails.sessao_id,
                     orderItemIds: selectedOrderItemIds,
@@ -181,8 +182,8 @@ const WaiterTableManager = () => {
         if (!window.confirm('Deseja abrir esta mesa agora?')) return;
 
         try {
-            const user = getCurrentUser();
-            await ky.post(`http://localhost:4242/api/waiter/tables/${tableId}/open`, {
+            const user = JSON.parse(localStorage.getItem('restaurant_user_v1'));
+            await ky.post(`${BASE_URL}/api/waiter/tables/${tableId}/open`, {
                 json: { userId: user?.id }
             }).json();
 

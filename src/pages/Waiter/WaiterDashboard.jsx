@@ -12,10 +12,11 @@ const WaiterDashboard = () => {
     useEffect(() => {
         const fetchTablesInfo = async () => {
             try {
+                const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4242';
                 // To display tables and their current session status, we need a new backend endpoint
                 // or we can mock the UI until we create it.
                 // For now, let's call a hypothetical endpoint that we'll build next.
-                const data = await ky.get('http://localhost:4242/api/waiter/tables').json();
+                const data = await ky.get(`${BASE_URL}/api/waiter/tables`).json();
                 setTables(data);
             } catch (err) {
                 console.error("Error fetching tables for waiter:", err);
