@@ -1293,6 +1293,31 @@ app.post('/api/waiter/tables/:tableId/close', async (req, res) => {
     }
 });
 
+// POST /api/waiter/tables/:tableId/open - Abrir Mesa (Forçado pelo garçom)
+app.post('/api/waiter/tables/:tableId/open', async (req, res) => {
+    const { tableId } = req.params;
+    const { userId } = req.body; // Opcional: ID do garçom que está abrindo
+
+    try {
+        // 1. Verificar se já não há uma sessão aberta
+        const check = await pool.query("SELECT id_sessao FROM sessoes WHERE id_mesa = $1 AND status = 'ABERTA'", [tableId]);
+        if (check.rows.length > 0) {
+            return res.status(400).json({ error: 'Mesa já possui uma sessão aberta' });
+        }
+
+        // 2. Criar nova sessão
+        const result = await pool.query(
+            "INSERT INTO sessoes (id_restaurante, id_mesa, id_usuario_criador, status) VALUES ($1, $2, $3, 'ABERTA') RETURNING id_sessao",
+            [1, tableId, userId || null, 'ABERTA']
+        );
+
+        res.json({ success: true, sessionId: result.rows[0].id_sessao });
+    } catch (e) {
+        console.error('Error opening table session:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- CRON JOBS & AUTOMATION ---
 // Roda a cada 10 minutos para limpar mesas se tiver passado do horario de fechamento + 30m
 setInterval(async () => {

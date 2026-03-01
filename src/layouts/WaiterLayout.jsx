@@ -1,7 +1,8 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Divider } from '@mui/material';
-import { LayoutDashboard, LogOut } from 'lucide-react';
+import { LayoutDashboard, LogOut, ArrowLeft, Settings } from 'lucide-react';
+import { getCurrentUser, logoutUser } from '../utils/userStore';
 
 const drawerWidth = 240;
 
@@ -51,12 +52,30 @@ const WaiterLayout = () => {
                             <ListItemText primary="Painel de Mesas" primaryTypographyProps={{ fontWeight: location.pathname === '/waiter' ? 800 : 500 }} />
                         </ListItemButton>
                     </ListItem>
+
+                    {getCurrentUser()?.role === 'ADMIN' && (
+                        <ListItem disablePadding sx={{ mb: 1 }}>
+                            <ListItemButton
+                                onClick={() => navigate('/admin')}
+                                sx={{ borderRadius: 2, color: '#9CA3AF', '&:hover': { bgcolor: '#333', color: '#FFF' } }}
+                            >
+                                <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}><Settings size={20} /></ListItemIcon>
+                                <ListItemText primary="Voltar ao Admin" />
+                            </ListItemButton>
+                        </ListItem>
+                    )}
                 </List>
 
                 <Box sx={{ mt: 'auto', p: 2 }}>
-                    <ListItemButton onClick={() => navigate('/login')} sx={{ borderRadius: 2, color: '#9CA3AF', '&:hover': { bgcolor: '#333', color: '#FFF' } }}>
+                    <ListItemButton
+                        onClick={() => {
+                            logoutUser();
+                            navigate('/menu');
+                        }}
+                        sx={{ borderRadius: 2, color: '#FF5252', '&:hover': { bgcolor: '#2D1A1A', color: '#FF5252' } }}
+                    >
                         <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}><LogOut size={20} /></ListItemIcon>
-                        <ListItemText primary="Sair do Sistema" />
+                        <ListItemText primary="Sair do Sistema" primaryTypographyProps={{ fontWeight: 700 }} />
                     </ListItemButton>
                 </Box>
             </Drawer>

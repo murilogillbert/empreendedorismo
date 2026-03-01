@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
 //import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField } from '@mui/material';
 import { Box, Typography, Button, Card, Stack, Divider, CircularProgress, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemButton, ListItemText, ListItemAvatar, Avatar, TextField, Grid } from '@mui/material';
-import { Camera, ArrowLeft, ShoppingBag, X, Search } from 'lucide-react';
+import { Camera, ArrowLeft, ShoppingBag, X, Search, Play } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import ky from 'ky';
 
@@ -129,6 +129,23 @@ const WaiterTableManager = () => {
         }
     };
 
+    const handleOpenTableSession = async () => {
+        if (!window.confirm('Deseja abrir esta mesa agora?')) return;
+
+        try {
+            const user = JSON.parse(localStorage.getItem('restaurant_user_v1'));
+            await ky.post(`http://localhost:4242/api/waiter/tables/${tableId}/open`, {
+                json: { userId: user?.id }
+            }).json();
+
+            alert('Mesa aberta com sucesso!');
+            await fetchTableDetails();
+        } catch (e) {
+            const error = await e.response?.json();
+            alert(error?.error || 'Erro ao abrir mesa.');
+        }
+    };
+
     if (loading) return <Box sx={{ display: 'flex', mt: 10, justifyContent: 'center' }}><CircularProgress /></Box>;
     if (!tableDetails) return <Typography>Mesa não encontrada</Typography>;
 
@@ -173,9 +190,10 @@ const WaiterTableManager = () => {
                             ) : (
                                 <Button
                                     variant="contained"
+                                    startIcon={<Play size={18} />}
                                     sx={{ bgcolor: '#FF8C00', '&:hover': { bgcolor: '#E67E00' }, height: 50, fontWeight: 700 }}
                                     fullWidth
-                                    onClick={() => alert('Rota para forçar abertura ainda será implementada')}
+                                    onClick={handleOpenTableSession}
                                 >
                                     Abrir Nova Sessão
                                 </Button>
