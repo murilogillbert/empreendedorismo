@@ -18,6 +18,7 @@
     "@mantine/hooks": "^8.3.15",
     "@mui/icons-material": "^7.3.8",
     "@mui/material": "^7.3.8",
+    "@yudiel/react-qr-scanner": "^2.5.1",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
