@@ -74,6 +74,9 @@ CREATE TABLE restaurantes (
     logradouro VARCHAR(200) NULL,
     cidade VARCHAR(100) NULL,
     estado VARCHAR(2) NULL,
+    latitude VARCHAR(50) NULL,
+    longitude VARCHAR(50) NULL,
+    slug VARCHAR(100) NULL UNIQUE,
     ativo BOOLEAN NOT NULL DEFAULT true
 );
 
@@ -92,8 +95,19 @@ CREATE TABLE mesas (
     id_restaurante INTEGER NOT NULL REFERENCES restaurantes(id_restaurante) ON DELETE CASCADE,
     identificador_mesa VARCHAR(20) NOT NULL,
     capacidade INTEGER DEFAULT 4,
-    ativa BOOLEAN NOT NULL DEFAULT true
+    ativa BOOLEAN NOT NULL DEFAULT true,
+    chamar_garcom BOOLEAN DEFAULT false,
+    chamar_garcom_em TIMESTAMP NULL
 );
+
+INSERT INTO mesas (id_restaurante, identificador_mesa, capacidade) VALUES
+(1, 'MESA 01', 2),
+(1, 'MESA 02', 2),
+(1, 'MESA 03', 4),
+(1, 'MESA 04', 4),
+(1, 'MESA 05', 6),
+(1, 'VIP 01', 8)
+ON CONFLICT DO NOTHING;
 
 -- =====================================================
 -- TABELA: sessoes

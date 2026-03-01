@@ -312,34 +312,30 @@ app.get('/api/restaurants/nearby', async (req, res) => {
 
     try {
         // Haversine formula directly in SQL
+        // Haversine formula using CTE to allow filtering by the calculated 'distance' alias
         const query = `
-            SELECT 
-                r.id_restaurante,
-                r.nome_fantasia as name,
-                r.slug,
-                r.logradouro as address,
-                r.latitude,
-                r.longitude,
-                (
-                    6371 * acos(
-                        cos(radians($1)) * 
-                        cos(radians(r.latitude)) * 
-                        cos(radians(r.longitude) - radians($2)) + 
-                        sin(radians($1)) * 
-                        sin(radians(r.latitude))
-                    )
-                ) AS distance
-            FROM restaurantes r
-            WHERE r.ativo = true AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL
-            HAVING (
-                6371 * acos(
-                    cos(radians($1)) * 
-                    cos(radians(r.latitude)) * 
-                    cos(radians(r.longitude) - radians($2)) + 
-                    sin(radians($1)) * 
-                    sin(radians(r.latitude))
-                )
-            ) <= $3
+            WITH restaurant_distances AS (
+                SELECT 
+                    r.id_restaurante,
+                    r.nome_fantasia as name,
+                    r.slug,
+                    r.logradouro as address,
+                    r.latitude,
+                    r.longitude,
+                    (
+                        6371 * acos(
+                            cos(radians($1)) * 
+                            cos(radians(CAST(r.latitude AS NUMERIC))) * 
+                            cos(radians(CAST(r.longitude AS NUMERIC)) - radians($2)) + 
+                            sin(radians($1)) * 
+                            sin(radians(CAST(r.latitude AS NUMERIC)))
+                        )
+                    ) AS distance
+                FROM restaurantes r
+                WHERE r.ativo = true AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL
+            )
+            SELECT * FROM restaurant_distances
+            WHERE distance <= $3
             ORDER BY distance ASC;
         `;
 
@@ -469,8 +465,8 @@ app.post('/api/session/join', async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // Find table by code
-        const tableRes = await client.query('SELECT id_mesa FROM mesas WHERE identificador_mesa = $1 AND ativa = true', [tableCode]);
+        // Find table by code (case-insensitive)
+        const tableRes = await client.query('SELECT id_mesa FROM mesas WHERE UPPER(identificador_mesa) = UPPER($1) AND ativa = true', [tableCode]);
         if (tableRes.rows.length === 0) {
             return res.status(404).json({ error: 'Mesa não encontrada ou inativa' });
         }
