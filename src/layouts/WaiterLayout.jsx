@@ -1,137 +1,146 @@
 import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Box, AppBar, Toolbar, Typography, Drawer, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Divider } from '@mui/material';
-import { LayoutDashboard, LogOut, ArrowLeft, Settings } from 'lucide-react';
+import {
+    Box,
+    AppBar,
+    Toolbar,
+    Typography,
+    Button,
+    IconButton,
+    Stack,
+    Tooltip,
+    Container
+} from '@mui/material';
+import {
+    LayoutDashboard,
+    LogOut,
+    Settings,
+    UserCircle,
+    Store
+} from 'lucide-react';
 import { getCurrentUser, logoutUser } from '../utils/userStore';
-
-const drawerWidth = 280;
 
 const WaiterLayout = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const user = getCurrentUser();
 
-    const menuItems = [
-        { label: 'Painel de Mesas', path: '/waiter', icon: <LayoutDashboard size={20} /> },
-    ];
+    const handleLogout = () => {
+        logoutUser();
+        navigate('/menu');
+    };
 
     return (
-        <Box sx={{ display: 'flex', bgcolor: 'var(--bg-color)', minHeight: '100vh' }}>
-            {/* AppBar */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'var(--bg-color)' }}>
+            {/* Header */}
             <AppBar
-                position="fixed"
+                position="sticky"
                 elevation={0}
                 sx={{
-                    width: { sm: `calc(100% - ${drawerWidth}px)` },
-                    ml: { sm: `${drawerWidth}px` },
                     bgcolor: 'rgba(255, 255, 255, 0.8)',
                     backdropFilter: 'blur(10px)',
-                    color: 'var(--text-main)',
                     borderBottom: '1px solid var(--border-color)',
-                    zIndex: (theme) => theme.zIndex.drawer + 1
+                    color: 'var(--text-main)',
+                    zIndex: 1100
                 }}
             >
-                <Toolbar sx={{ height: 80 }}>
-                    <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 900, letterSpacing: -0.5 }}>
-                        Terminal do Garçom
-                    </Typography>
-                </Toolbar>
-            </AppBar>
-
-            {/* Sidebar Drawer */}
-            <Drawer
-                variant="permanent"
-                sx={{
-                    width: drawerWidth,
-                    flexShrink: 0,
-                    '& .MuiDrawer-paper': {
-                        width: drawerWidth,
-                        boxSizing: 'border-box',
-                        bgcolor: '#0F172A', // Darker slate for premium sidebar
-                        color: '#FFFFFF',
-                        borderRight: 'none',
-                        p: 2
-                    },
-                }}
-            >
-                <Box sx={{ py: 3, px: 2, mb: 4 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 900, color: 'var(--primary)', letterSpacing: -1 }}>
-                        VITE<span style={{ color: 'white' }}>APP</span>
-                    </Typography>
-                </Box>
-
-                <Stack spacing={1}>
-                    {menuItems.map((item) => {
-                        const active = location.pathname === item.path;
-                        return (
-                            <ListItemButton
-                                key={item.path}
-                                onClick={() => navigate(item.path)}
+                <Container maxWidth="lg">
+                    <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 0, sm: 2 } }}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <Box
                                 sx={{
-                                    borderRadius: '14px',
-                                    py: 1.5,
-                                    bgcolor: active ? 'rgba(255, 140, 0, 0.15)' : 'transparent',
-                                    color: active ? 'var(--primary)' : '#94A3B8',
-                                    '&:hover': {
-                                        bgcolor: active ? 'rgba(255, 140, 0, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                                        color: active ? 'var(--primary)' : '#FFF'
-                                    },
-                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                                    bgcolor: 'var(--primary)',
+                                    p: 1,
+                                    borderRadius: 2,
+                                    display: { xs: 'none', sm: 'flex' }
                                 }}
                             >
-                                <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}>
-                                    {item.icon}
-                                </ListItemIcon>
-                                <ListItemText
-                                    primary={item.label}
-                                    primaryTypographyProps={{ fontWeight: active ? 800 : 600, fontSize: '0.95rem' }}
-                                />
-                            </ListItemButton>
-                        );
-                    })}
+                                <Store color="white" size={20} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: -0.5, lineHeight: 1 }}>
+                                    Garçom
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                    Terminal Ativo
+                                </Typography>
+                            </Box>
+                        </Stack>
 
-                    {getCurrentUser()?.role === 'ADMIN' && (
-                        <ListItemButton
-                            onClick={() => navigate('/admin')}
-                            sx={{
-                                borderRadius: '14px', py: 1.5, color: '#94A3B8',
-                                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)', color: '#FFF' }
-                            }}
-                        >
-                            <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}><Settings size={20} /></ListItemIcon>
-                            <ListItemText primary="Painel Admin" primaryTypographyProps={{ fontWeight: 600, fontSize: '0.95rem' }} />
-                        </ListItemButton>
-                    )}
-                </Stack>
+                        <Stack direction="row" spacing={{ xs: 0.5, sm: 1 }} alignItems="center">
+                            <Button
+                                size="small"
+                                startIcon={<LayoutDashboard size={18} />}
+                                onClick={() => navigate('/waiter')}
+                                sx={{
+                                    borderRadius: 3,
+                                    fontWeight: 800,
+                                    px: 2,
+                                    bgcolor: location.pathname === '/waiter' ? 'rgba(255, 140, 0, 0.1)' : 'transparent',
+                                    color: location.pathname === '/waiter' ? 'var(--primary)' : 'inherit',
+                                    '&:hover': { bgcolor: 'rgba(255, 140, 0, 0.15)' }
+                                }}
+                            >
+                                <Box sx={{ display: { xs: 'none', md: 'block' } }}>Mesas</Box>
+                            </Button>
 
-                <Box sx={{ mt: 'auto', pb: 2 }}>
-                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', mb: 2 }} />
-                    <ListItemButton
-                        onClick={() => {
-                            logoutUser();
-                            navigate('/menu');
-                        }}
-                        sx={{
-                            borderRadius: '14px', py: 1.5, color: '#F87171',
-                            '&:hover': { bgcolor: 'rgba(248, 113, 113, 0.1)', color: '#F87171' }
-                        }}
-                    >
-                        <ListItemIcon sx={{ color: 'inherit', minWidth: 40 }}><LogOut size={20} /></ListItemIcon>
-                        <ListItemText primary="Sair do Sistema" primaryTypographyProps={{ fontWeight: 800, fontSize: '0.95rem' }} />
-                    </ListItemButton>
-                </Box>
-            </Drawer>
+                            {user?.role === 'ADMIN' && (
+                                <Button
+                                    size="small"
+                                    startIcon={<Settings size={18} />}
+                                    onClick={() => navigate('/admin')}
+                                    sx={{
+                                        borderRadius: 3,
+                                        fontWeight: 800,
+                                        px: 2,
+                                        color: 'inherit',
+                                        '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.05)' }
+                                    }}
+                                >
+                                    <Box sx={{ display: { xs: 'none', md: 'block' } }}>Admin</Box>
+                                </Button>
+                            )}
+
+                            <Box sx={{ width: '1px', height: '24px', bgcolor: 'var(--border-color)', mx: 1 }} />
+
+                            <Tooltip title="Sair do Terminal">
+                                <IconButton
+                                    onClick={handleLogout}
+                                    sx={{
+                                        color: '#F87171',
+                                        bgcolor: '#FEF2F2',
+                                        '&:hover': { bgcolor: '#FEE2E2' },
+                                        borderRadius: 3
+                                    }}
+                                >
+                                    <LogOut size={20} />
+                                </IconButton>
+                            </Tooltip>
+                        </Stack>
+                    </Toolbar>
+                </Container>
+            </AppBar>
 
             {/* Main Content */}
             <Box
                 component="main"
-                sx={{ flexGrow: 1, p: { xs: 2, md: 4 } }}
-                key={location.pathname}
-                className="animate-fade-in-up"
+                sx={{
+                    flexGrow: 1,
+                    p: { xs: 2, md: 4 },
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}
             >
-                <Toolbar sx={{ height: 80 }} /> {/* Spacer */}
-                <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-                    <Outlet />
-                </Box>
+                <Container maxWidth="lg" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box
+                        sx={{
+                            flexGrow: 1,
+                            animation: 'fadeInUp 0.4s ease-out'
+                        }}
+                    >
+                        <Outlet />
+                    </Box>
+                </Container>
             </Box>
         </Box>
     );

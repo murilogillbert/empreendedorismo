@@ -67,7 +67,7 @@ const Kitchen = () => {
 
             <Grid container spacing={3}>
                 {columns.map((col) => (
-                    <Grid xs={12} md={4} key={col.status}>
+                    <Grid size={{ xs: 12, md: 4 }} key={col.status}>
                         <Paper
                             elevation={0}
                             sx={{

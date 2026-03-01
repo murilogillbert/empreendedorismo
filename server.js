@@ -1328,7 +1328,7 @@ app.post('/api/waiter/tables/:tableId/open', async (req, res) => {
         // 2. Criar nova sessão
         const result = await pool.query(
             "INSERT INTO sessoes (id_restaurante, id_mesa, id_usuario_criador, status) VALUES ($1, $2, $3, 'ABERTA') RETURNING id_sessao",
-            [1, tableId, userId || null]
+            [1, tableId, userId || 1] // Fallback para Admin ID 1 se não houver userId
         );
 
         res.json({ success: true, sessionId: result.rows[0].id_sessao });

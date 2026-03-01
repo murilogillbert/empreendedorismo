@@ -25,7 +25,7 @@ import {
     Checkbox,
     FormControlLabel
 } from '@mui/material';
-import { CreditCard, Users2, Copy, Share2, QrCode, LogOut, ChevronDown, Trash2, CheckCircle, Clock } from 'lucide-react';
+import { CreditCard, Users2, Copy, Share2, QrCode, LogOut, ChevronDown, Trash2, CheckCircle, Clock, Receipt } from 'lucide-react';
 import { getOrders, createPool, getPoolBySession, getAllPools, removePoolItem, startPoolCheckout } from '../utils/orderStore';
 import { getTableSession, clearTableSession } from '../utils/tableStore';
 import { getCurrentUser } from '../utils/userStore';
