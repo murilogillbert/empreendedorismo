@@ -31,8 +31,8 @@ const AuthLayout = () => {
                     }}
                 >
                     <Box sx={{ mb: 6 }}>
-                        <Typography variant="h3" sx={{ fontWeight: 1000, color: 'var(--primary)', letterSpacing: -2, mb: 1 }}>
-                            VITE<span style={{ color: 'var(--text-main)' }}>APP</span>
+                        <Typography variant="h3" sx={{ fontWeight: 1000, letterSpacing: -2, mb: 1 }}>
+                            <span style={{ color: 'var(--primary)' }}>U</span>TABLE
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'var(--text-muted)', fontWeight: 600, px: 2, lineHeight: 1.6 }}>
                             Acesse sua conta para gerenciar seu restaurante com elegância.
