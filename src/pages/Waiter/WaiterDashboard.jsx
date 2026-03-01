@@ -39,7 +39,7 @@ const WaiterDashboard = () => {
                 {tables.map(table => {
                     const isOpen = table.status === 'ABERTA';
                     return (
-                        <Grid item xs={12} sm={6} md={4} key={table.mesa_id}>
+                        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={table.mesa_id}>
                             <Card
                                 elevation={isOpen ? 3 : 0}
                                 sx={{

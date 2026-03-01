@@ -12,46 +12,44 @@ import {
     Stack,
     IconButton,
     Menu,
-    MenuItem as MuiMenuItem
+    MenuItem as MuiMenuItem,
+    Button,
+    Card
 } from '@mui/material';
 import { MoreVertical, CheckCircle2, Clock, Utensils, AlertCircle, XCircle } from 'lucide-react';
 import { getOrders, updateOrderStatus } from '../utils/orderStore';
 import { getTableSession } from '../utils/tableStore';
 
 const statusColors = {
-    'Recebido': { color: '#757575', icon: <Clock size={16} />, bg: '#F5F5F5' },
-    'Preparando': { color: '#0288d1', icon: <Utensils size={16} />, bg: '#e1f5fe' },
-    'Pronto': { color: '#2e7d32', icon: <CheckCircle2 size={16} />, bg: '#e8f5e9' },
-    'Entregue': { color: '#ed6c02', icon: <AlertCircle size={16} />, bg: '#fff3e0' },
-    'Cancelado': { color: '#d32f2f', icon: <XCircle size={16} />, bg: '#ffebee' }
+    'Recebido': { color: '#757575', icon: <Clock size={16} />, bg: '#F5F5F5', label: 'Recebido' },
+    'Preparando': { color: '#0288d1', icon: <Utensils size={16} />, bg: '#E1F5FE', label: 'Na Cozinha' },
+    'Pronto': { color: '#2E7D32', icon: <CheckCircle2 size={16} />, bg: '#E8F5E9', label: 'Pronto!' },
+    'Entregue': { color: '#ED6C02', icon: <CheckCircle2 size={16} />, bg: '#FFF3E0', label: 'Entregue' },
+    'Cancelado': { color: '#D32F2F', icon: <XCircle size={16} />, bg: '#FFEBEE', label: 'Cancelado' }
 };
 
 const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [anchorEl, setAnchorEl] = useState(null);
     const [selectedOrderId, setSelectedOrderId] = useState(null);
-
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchOrders = async () => {
-            const session = getTableSession();
-            if (!session) {
-                setLoading(false);
-                return;
-            }
-            const data = await getOrders(session.sessionId);
-            setOrders(data);
+    const fetchOrders = async () => {
+        const session = getTableSession();
+        if (!session) {
             setLoading(false);
-        };
+            return;
+        }
+        const data = await getOrders(session.sessionId);
+        // Ordenar por data (mais recentes primeiro)
+        const sortedData = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        setOrders(sortedData);
+        setLoading(false);
+    };
 
+    useEffect(() => {
         fetchOrders();
-
-        // Simulating auto-refresh for order status
-        const interval = setInterval(() => {
-            fetchOrders();
-        }, 30000);
-
+        const interval = setInterval(fetchOrders, 15000);
         return () => clearInterval(interval);
     }, []);
 
@@ -66,125 +64,189 @@ const Orders = () => {
     };
 
     const handleStatusChange = async (newStatus) => {
-        const session = getTableSession();
         await updateOrderStatus(selectedOrderId, newStatus);
-        if (session) {
-            const updated = await getOrders(session.sessionId);
-            setOrders(updated);
-        }
+        await fetchOrders();
         handleMenuClose();
     };
 
     if (loading) {
-        return <Box sx={{ textAlign: 'center', mt: 10 }}><Typography>Carregando pedidos...</Typography></Box>;
+        return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 10, gap: 2 }}>
+                <Box className="pulse" sx={{ p: 2, bgcolor: '#F5F5F5', borderRadius: '50%' }}>
+                    <Clock size={32} color="#999" />
+                </Box>
+                <Typography sx={{ color: 'var(--text-muted)', fontWeight: 600 }}>Sincronizando pedidos...</Typography>
+            </Box>
+        );
     }
 
     if (orders.length === 0) {
         return (
-            <Box sx={{ textAlign: 'center', mt: 10 }}>
-                <Typography variant="h6" color="text.secondary">
-                    Nenhum pedido realizado ainda.
+            <Box sx={{ textAlign: 'center', mt: 8, px: 3 }}>
+                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+                    <Box sx={{ p: 3, bgcolor: '#F5F5F5', borderRadius: '32px' }}>
+                        <Utensils size={64} color="#CCC" />
+                    </Box>
+                </Box>
+                <Typography variant="h5" sx={{ fontWeight: 900, mb: 1, color: 'var(--text-main)' }}>Nenhum pedido ainda</Typography>
+                <Typography variant="body1" sx={{ color: 'var(--text-muted)', mb: 4 }}>
+                    Seus pedidos aparecerão aqui assim que você escolher algo no menu.
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    Vá ao Menu e escolha pratos deliciosos!
-                </Typography>
+                <Button
+                    variant="contained"
+                    fullWidth
+                    href="/menu"
+                    sx={{
+                        bgcolor: 'var(--primary)', fontWeight: 900, borderRadius: '18px', py: 2,
+                        '&:hover': { bgcolor: 'var(--primary-hover)' }
+                    }}
+                >
+                    Explorar Menu
+                </Button>
             </Box>
         );
     }
 
     return (
-        <Box>
-            <Typography variant="h5" sx={{ fontWeight: 900, mb: 3 }}>
-                Acompanhe seu Pedido
+        <Box sx={{ pb: 8 }}>
+            <Typography variant="h4" sx={{ fontWeight: 900, mb: 1, letterSpacing: -1 }}>
+                Meus Pedidos
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'var(--text-muted)', mb: 4, fontWeight: 500 }}>
+                Acompanhe o status de cada item em tempo real.
             </Typography>
 
-            <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+            <Stack spacing={2.5}>
                 {orders.map((order, index) => (
-                    <React.Fragment key={index}>
-                        <ListItem
-                            alignItems="flex-start"
-                            sx={{ px: 0, py: 2 }}
-                            secondaryAction={
-                                <IconButton edge="end" onClick={(e) => handleMenuOpen(e, order.id)}>
-                                    <MoreVertical size={20} />
-                                </IconButton>
-                            }
-                        >
-                            <ListItemAvatar sx={{ minWidth: 70 }}>
+                    <Card
+                        key={order.id ?? index}
+                        elevation={0}
+                        sx={{
+                            p: 2.5,
+                            borderRadius: '28px',
+                            border: '1px solid var(--border-color)',
+                            bgcolor: 'var(--card-bg)',
+                            position: 'relative',
+                            transition: 'transform 0.2s, box-shadow 0.2s',
+                            '&:active': { transform: 'scale(0.98)' }
+                        }}
+                    >
+                        <Stack direction="row" spacing={2} alignItems="flex-start">
+                            <Box sx={{ position: 'relative' }}>
                                 <Avatar
                                     variant="rounded"
                                     src={order.image}
-                                    sx={{ width: 56, height: 56, borderRadius: 2 }}
+                                    sx={{ width: 80, height: 80, borderRadius: '18px', bgcolor: '#F5F5F5' }}
                                 />
-                            </ListItemAvatar>
-                            <ListItemText
-                                primaryTypographyProps={{ component: 'div' }}
-                                secondaryTypographyProps={{ component: 'div' }}
-                                primary={
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                                            {order.quantity ?? order.quantidade ?? 1}x {order.name}
-                                        </Typography>
-                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#FF8C00' }}>
-                                            R$ {parseFloat(order.finalPrice ?? order.price ?? 0).toFixed(2)}
-                                        </Typography>
-                                    </Stack>
-                                }
-                                secondary={
-                                    <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
-                                        {order.selectedAddons && order.selectedAddons.length > 0 && (
-                                            <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                                                {order.selectedAddons.map((addon, i) => (
-                                                    <Chip
-                                                        key={i}
-                                                        label={`+ ${addon.name}`}
-                                                        size="small"
-                                                        sx={{ fontSize: '0.65rem', height: 20, bgcolor: '#FFF8F0', color: '#FF8C00', fontWeight: 700 }}
-                                                    />
-                                                ))}
-                                            </Box>
-                                        )}
-                                        {order.observations && (
-                                            <Typography component="span" variant="caption" sx={{ display: 'block', fontStyle: 'italic', mb: 1, color: 'text.secondary' }}>
-                                                Obs: "{order.observations}"
-                                            </Typography>
-                                        )}
-                                        <Chip
-                                            icon={statusColors[order.status]?.icon}
-                                            label={order.status}
-                                            size="small"
-                                            sx={{
-                                                fontWeight: 700,
-                                                bgcolor: statusColors[order.status]?.bg,
-                                                color: statusColors[order.status]?.color,
-                                                '& .MuiChip-icon': { color: 'inherit' }
-                                            }}
-                                        />
-                                        <Typography component="span" variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                                            Vite Restaurante • {new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {order.status === 'Pronto' && (
+                                    <Box sx={{
+                                        position: 'absolute', top: -8, right: -8,
+                                        bgcolor: '#2E7D32', color: '#FFF',
+                                        borderRadius: '50%', p: 0.5, border: '3px solid #FFF'
+                                    }}>
+                                        <CheckCircle2 size={16} />
+                                    </Box>
+                                )}
+                            </Box>
+
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'var(--text-main)', lineHeight: 1.2 }}>
+                                        {order.quantity ?? order.quantidade ?? 1}x {order.name}
+                                    </Typography>
+                                    <IconButton size="small" onClick={(e) => handleMenuOpen(e, order.id)} sx={{ mt: -0.5, mr: -0.5 }}>
+                                        <MoreVertical size={18} color="var(--text-muted)" />
+                                    </IconButton>
+                                </Box>
+
+                                <Typography variant="caption" sx={{ color: 'var(--text-muted)', fontWeight: 600, display: 'block', mb: 1.5 }}>
+                                    {new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Pedido #{order.id?.toString().slice(-4)}
+                                </Typography>
+
+                                {order.selectedAddons && order.selectedAddons.length > 0 && (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 1.5 }}>
+                                        {order.selectedAddons.map((addon, i) => (
+                                            <Chip
+                                                key={i}
+                                                label={`+ ${addon.name}`}
+                                                size="small"
+                                                sx={{
+                                                    fontSize: '0.65rem', height: 20,
+                                                    bgcolor: '#FAFAFA', border: '1px solid #EEE',
+                                                    color: 'var(--text-main)', fontWeight: 800,
+                                                    borderRadius: '6px'
+                                                }}
+                                            />
+                                        ))}
+                                    </Box>
+                                )}
+
+                                {order.observations && (
+                                    <Box sx={{
+                                        bgcolor: '#F9F9F9', p: 1.5, borderRadius: '12px', mb: 1.5,
+                                        borderLeft: '4px solid #DDD'
+                                    }}>
+                                        <Typography variant="caption" sx={{ color: '#666', fontStyle: 'italic', display: 'block' }}>
+                                            "{order.observations}"
                                         </Typography>
                                     </Box>
-                                }
-                            />
-                        </ListItem>
-                        {index < orders.length - 1 && <Divider component="li" sx={{ borderStyle: 'dashed' }} />}
-                    </React.Fragment>
-                ))}
-            </List>
+                                )}
 
-            {/* Menu para trocar status (Simulação) */}
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Chip
+                                        icon={statusColors[order.status]?.icon}
+                                        label={statusColors[order.status]?.label ?? order.status}
+                                        size="small"
+                                        sx={{
+                                            fontWeight: 900,
+                                            fontSize: '0.7rem',
+                                            height: 28,
+                                            bgcolor: statusColors[order.status]?.bg,
+                                            color: statusColors[order.status]?.color,
+                                            borderRadius: '10px',
+                                            '& .MuiChip-icon': { color: 'inherit' }
+                                        }}
+                                    />
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'var(--primary)' }}>
+                                        R$ {parseFloat(order.finalPrice ?? order.price ?? 0).toFixed(2)}
+                                    </Typography>
+                                </Box>
+                            </Box>
+                        </Stack>
+                    </Card>
+                ))}
+            </Stack>
+
+            {/* Menu para trocar status (Simulação Admin/Waiter) */}
             <Menu
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
-                PaperProps={{ sx: { borderRadius: 3, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' } }}
+                PaperProps={{
+                    sx: {
+                        borderRadius: '18px',
+                        mt: 1,
+                        minWidth: 180,
+                        boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
+                        border: '1px solid var(--border-color)'
+                    }
+                }}
             >
-                <Typography variant="overline" sx={{ px: 2, py: 1, fontWeight: 800 }}>Mudar Status</Typography>
-                <MuiMenuItem onClick={() => handleStatusChange('Recebido')}>Recebido</MuiMenuItem>
-                <MuiMenuItem onClick={() => handleStatusChange('Preparando')}>Preparando</MuiMenuItem>
-                <MuiMenuItem onClick={() => handleStatusChange('Pronto')}>Pronto</MuiMenuItem>
-                <MuiMenuItem onClick={() => handleStatusChange('Entregue')}>Entregue</MuiMenuItem>
-                <MuiMenuItem onClick={() => handleStatusChange('Cancelado')}>Cancelado</MuiMenuItem>
+                <Box sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>
+                        Alterar Status
+                    </Typography>
+                </Box>
+                <Divider />
+                {Object.keys(statusColors).map((status) => (
+                    <MuiMenuItem
+                        key={status}
+                        onClick={() => handleStatusChange(status)}
+                        sx={{ py: 1.5, fontWeight: 700, fontSize: '0.9rem' }}
+                    >
+                        {status}
+                    </MuiMenuItem>
+                ))}
             </Menu>
         </Box>
     );

@@ -81,12 +81,12 @@ const Menu = () => {
 
     return (
         <Box sx={{ pb: 8 }}>
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 900, color: '#1A1A1A' }}>
-                    Nosso Cardápio
+            <Box sx={{ mb: 4, mt: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--text-main)', letterSpacing: -1 }}>
+                    Cardápio
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.4 }}>
-                    Escolha seus pratos favoritos 🍽️
+                <Typography variant="body1" sx={{ color: 'var(--text-muted)', fontWeight: 500 }}>
+                    O que vamos pedir hoje? 😋
                 </Typography>
             </Box>
 
@@ -95,17 +95,22 @@ const Menu = () => {
                 onCategoryChange={setActiveCategory}
             />
 
-            <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, mb: 1, display: 'block', color: '#999', letterSpacing: 0.8, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+            <Box sx={{ mb: 4 }}>
+                <Typography variant="caption" sx={{
+                    fontWeight: 900, mb: 1.5, display: 'block',
+                    color: 'var(--text-main)', letterSpacing: 1.5,
+                    textTransform: 'uppercase', fontSize: '0.7rem'
+                }}>
                     🚫 Remover alérgenos
                 </Typography>
-                <Box sx={{
+                <Box className="no-scrollbar" sx={{
                     overflowX: 'auto',
                     whiteSpace: 'nowrap',
                     pb: 1,
-                    '&::-webkit-scrollbar': { display: 'none' }
+                    mx: -2,
+                    px: 2
                 }}>
-                    <Stack direction="row" spacing={0.8}>
+                    <Stack direction="row" spacing={1.2}>
                         {allergensList.map(allergen => {
                             const active = selectedAllergens.includes(allergen);
                             return (
@@ -115,14 +120,17 @@ const Menu = () => {
                                     onClick={() => toggleAllergen(allergen)}
                                     variant={active ? 'filled' : 'outlined'}
                                     sx={{
-                                        bgcolor: active ? '#1A1A1A' : 'transparent',
-                                        color: active ? 'white' : '#888',
-                                        borderColor: active ? '#1A1A1A' : '#DDD',
-                                        fontWeight: 700,
+                                        borderRadius: '10px',
+                                        bgcolor: active ? 'var(--secondary)' : 'transparent',
+                                        color: active ? 'white' : 'var(--text-muted)',
+                                        borderColor: active ? 'var(--secondary)' : 'var(--border-color)',
+                                        fontWeight: 800,
                                         fontSize: '0.75rem',
-                                        transition: 'all 0.18s ease',
+                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        height: 32,
                                         '&:hover': {
-                                            bgcolor: active ? '#333' : '#F5F5F5',
+                                            bgcolor: active ? '#333' : '#F0F0F0',
+                                            transform: 'translateY(-1px)'
                                         }
                                     }}
                                 />
@@ -132,7 +140,7 @@ const Menu = () => {
                 </Box>
             </Box>
 
-            <Box sx={{ mt: 2 }}>
+            <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr' }, gap: 2 }}>
                 {getFilteredItems().map(item => (
                     <MenuItem
                         key={item.id}
@@ -145,6 +153,7 @@ const Menu = () => {
                     />
                 ))}
             </Box>
+
 
             <ItemDetailsModal
                 open={modalOpen}
