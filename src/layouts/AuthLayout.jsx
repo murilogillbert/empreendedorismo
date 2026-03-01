@@ -7,15 +7,7 @@ const AuthLayout = () => {
     const navigate = useNavigate();
 
     return (
-        <Box sx={{ minHeight: '100vh', bgcolor: '#FFFFFF' }}>
-            <Box sx={{ p: 2, display: 'flex', alignItems: 'center' }}>
-                <IconButton onClick={() => navigate(-1)} sx={{ color: '#000' }}>
-                    <ChevronLeft size={28} />
-                </IconButton>
-                <Typography variant="h6" sx={{ ml: 1, fontWeight: 800 }}>
-                    Voltar
-                </Typography>
-            </Box>
+        <Box sx={{ minHeight: '100vh', bgcolor: '#FFFFFF', pt: 4 }}>
             <Container maxWidth="xs" sx={{ pt: 4, pb: 8 }}>
                 <Box sx={{ textAlign: 'center', mb: 6 }}>
                     <Typography variant="h4" sx={{ fontWeight: 900, color: '#FF8C00' }}>

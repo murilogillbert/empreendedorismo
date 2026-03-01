@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { TextField, Button, Stack, Typography, InputAdornment, Box, Alert, CircularProgress } from '@mui/material';
-import { User, Mail, Lock, Phone } from 'lucide-react';
+import { User, Mail, Lock, Phone, ArrowLeft } from 'lucide-react';
 import { registerUser } from '../../utils/userStore';
 
 const Register = () => {
@@ -135,6 +135,16 @@ const Register = () => {
                     Fazer Login
                 </Link>
             </Typography>
+
+            <Button
+                variant="text"
+                fullWidth
+                startIcon={<ArrowLeft size={18} />}
+                onClick={() => navigate('/menu')}
+                sx={{ color: '#757575', fontWeight: 700 }}
+            >
+                Voltar ao Cardápio
+            </Button>
         </Stack>
     );
 };
