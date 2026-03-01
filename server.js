@@ -668,6 +668,42 @@ app.get('/api/admin/metrics', async (req, res) => {
     }
 });
 
+// --- KITCHEN GLOBAL SYNC ---
+
+// GET /api/admin/kitchen/orders — Busca TODOS os pedidos ativos de todas as sessões
+app.get('/api/admin/kitchen/orders', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                pi.id_pedido_item as id,
+                p.id_pedido as "orderId",
+                p.status,
+                p.criado_em as timestamp,
+                pi.quantidade as quantity,
+                pi.final_price as "valor_total",
+                pi.observacoes as observations,
+                ci.nome as name,
+                m.identificador_mesa as "tableIdentifier",
+                s.id_mesa as "tableId",
+                COALESCE(json_agg(jsonb_build_object('name', pia.nome_snapshot, 'price', pia.preco_snapshot)) FILTER (WHERE pia.nome_snapshot IS NOT NULL), '[]') as "selectedAddons"
+            FROM pedidos p
+            JOIN pedidos_itens pi ON p.id_pedido = pi.id_pedido
+            JOIN cardapio_itens ci ON pi.id_item = ci.id_item
+            JOIN sessoes s ON p.id_sessao = s.id_sessao
+            JOIN mesas m ON s.id_mesa = m.id_mesa
+            LEFT JOIN pedidos_itens_adicionais pia ON pi.id_pedido_item = pia.id_pedido_item
+            WHERE p.status IN ('Recebido', 'Preparando', 'Pronto')
+            GROUP BY p.id_pedido, pi.id_pedido_item, ci.id_item, m.id_mesa, s.id_mesa
+            ORDER BY p.criado_em ASC
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (e) {
+        console.error('Error in kitchen orders:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // --- STRIPE (Preserved but integrated with item price) ---
 
 app.post('/create-checkout-session', async (req, res) => {
@@ -1305,6 +1341,25 @@ setInterval(async () => {
         console.error('Error on auto-close cron:', e);
     }
 }, 10 * 60 * 1000); // 10 minutes
+
+// AUTO-CANCEL DELAYED ORDERS (30 minutes)
+setInterval(async () => {
+    try {
+        const query = `
+            UPDATE pedidos 
+            SET status = 'Cancelado' 
+            WHERE status = 'Recebido' 
+            AND criado_em < NOW() - INTERVAL '30 minutes'
+            RETURNING id_pedido
+        `;
+        const res = await pool.query(query);
+        if (res.rowCount > 0) {
+            console.log(`[Auto-Cancel] ${res.rowCount} pedidos atrasados foram cancelados.`);
+        }
+    } catch (e) {
+        console.error('Error on auto-cancel orders:', e);
+    }
+}, 60 * 1000); // Run every 1 minute
 
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

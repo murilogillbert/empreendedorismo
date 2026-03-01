@@ -19,6 +19,16 @@ export const getOrders = async (sessionId) => {
     }
 };
 
+export const getKitchenOrders = async () => {
+    try {
+        const orders = await api.get('admin/kitchen/orders').json();
+        return orders;
+    } catch (error) {
+        console.error('Error fetching kitchen orders:', error);
+        return [];
+    }
+};
+
 export const addToOrder = async (item, selectedAddons = [], observations = '', sessionId) => {
     if (!sessionId) throw new Error("Mesa não identificada");
     try {
