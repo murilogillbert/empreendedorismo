@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { MoreVertical, CheckCircle2, Clock, Utensils, AlertCircle, XCircle } from 'lucide-react';
 import { getOrders, updateOrderStatus } from '../utils/orderStore';
+import { getTableSession } from '../utils/tableStore';
 
 const statusColors = {
     'Recebido': { color: '#757575', icon: <Clock size={16} />, bg: '#F5F5F5' },
@@ -34,11 +35,24 @@ const Orders = () => {
 
     useEffect(() => {
         const fetchOrders = async () => {
-            const data = await getOrders();
+            const session = getTableSession();
+            if (!session) {
+                setLoading(false);
+                return;
+            }
+            const data = await getOrders(session.sessionId);
             setOrders(data);
             setLoading(false);
         };
+
         fetchOrders();
+
+        // Simulating auto-refresh for order status
+        const interval = setInterval(() => {
+            fetchOrders();
+        }, 30000);
+
+        return () => clearInterval(interval);
     }, []);
 
     const handleMenuOpen = (event, id) => {

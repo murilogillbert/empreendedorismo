@@ -1,24 +1,34 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
 import { CheckCircle2 } from 'lucide-react';
+import ky from 'ky';
 
 const Success = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [countdown, setCountdown] = useState(10);
+    const hasFired = useRef(false);
 
     useEffect(() => {
-        // If it's a pool payment, mark it as paid in the store (in a real app, webhook does this)
-        const poolId = searchParams.get('pool_id');
-        const amount = searchParams.get('amount');
-        const name = searchParams.get('name');
+        const confirmPayment = async () => {
+            const poolId = searchParams.get('pool_id');
+            const amount = searchParams.get('amount');
+            const name = searchParams.get('name');
 
-        if (poolId && amount && name) {
-            import('../utils/orderStore').then(({ addContribution }) => {
-                addContribution(poolId, parseFloat(amount), name);
-            });
-        }
+            if (poolId && amount && name && !hasFired.current) {
+                hasFired.current = true;
+                try {
+                    await ky.post('http://localhost:4242/api/pool/confirm', {
+                        json: { poolId, amount: parseFloat(amount), contributorName: name }
+                    });
+                } catch (e) {
+                    console.error("Error confirming payment in database:", e);
+                }
+            }
+        };
+
+        confirmPayment();
 
         const interval = setInterval(() => {
             setCountdown((prev) => {

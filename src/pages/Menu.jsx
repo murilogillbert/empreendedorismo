@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Search, SlidersHorizontal, ArrowLeft, ArrowRight, Eye, Camera, Star, Clock, ChefHat, Flame, Leaf } from 'lucide-react';
 import { Typography, Stack, Box, Snackbar, Alert, Chip } from '@mui/material';
 import CategoryBar from '../components/CategoryBar';
 import MenuItem from '../components/MenuItem';
 import ItemDetailsModal from '../components/ItemDetailsModal';
 import { addToOrder } from '../utils/orderStore';
 import { getMenu } from '../utils/menuStore';
+import { getTableSession } from '../utils/tableStore';
 
 const Menu = () => {
     const [activeCategory, setActiveCategory] = useState('all');
@@ -33,12 +35,19 @@ const Menu = () => {
 
     const handleConfirmAdd = async (item, addons, observations, quantity) => {
         try {
+            const tableSession = getTableSession();
+            if (!tableSession) {
+                alert("Por favor, vincule-se a uma mesa no cabeçalho antes de fazer o pedido.");
+                return;
+            }
             for (let i = 0; i < quantity; i++) {
-                await addToOrder(item, addons, observations);
+                await addToOrder(item, addons, observations, tableSession.sessionId);
             }
             setOpenSnackbar(true);
+            setSelectedItemForModal(null); // Assuming setSelectedItem refers to setSelectedItemForModal
         } catch (error) {
             console.error('Error adding to order:', error);
+            alert(error.message || 'Erro ao adicionar pedido. Tente novamente.');
         }
     };
 

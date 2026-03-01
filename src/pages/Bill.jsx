@@ -19,7 +19,8 @@ import {
     Alert
 } from '@mui/material';
 import { CreditCard, Users2, Copy, Share2, QrCode } from 'lucide-react';
-import { getOrders, createPool } from '../utils/orderStore';
+import { getOrders, createPool, getPoolBySession } from '../utils/orderStore';
+import { getTableSession } from '../utils/tableStore';
 import { QRCodeSVG } from 'qrcode.react';
 
 const Bill = () => {
@@ -30,12 +31,29 @@ const Bill = () => {
     const [openSnackbar, setOpenSnackbar] = useState(false);
 
     useEffect(() => {
-        const fetchOrders = async () => {
-            const allOrders = await getOrders();
-            const activeOrders = allOrders.filter(o => o.status === 'Entregue' || o.status === 'Pronto');
+        const fetchOrdersAndPool = async () => {
+            const session = getTableSession();
+            if (!session) return;
+
+            const allOrders = await getOrders(session.sessionId);
+            const activeOrders = allOrders.filter(o => o.status === 'Entregue' || o.status === 'Pronto' || o.status === 'Recebido' || o.status === 'Preparando');
             setOrders(activeOrders);
+
+            const existingPool = await getPoolBySession(session.sessionId);
+            if (existingPool) {
+                setPool(existingPool);
+            }
         };
-        fetchOrders();
+
+        // Initial fetch
+        fetchOrdersAndPool();
+
+        // Poll every 15 seconds
+        const intervalId = setInterval(() => {
+            fetchOrdersAndPool();
+        }, 15000);
+
+        return () => clearInterval(intervalId);
     }, []);
 
     const subtotal = orders.reduce((acc, item) => acc + (parseFloat(item.finalPrice ?? item.price ?? 0) * (item.quantity ?? item.quantidade ?? 1)), 0);
@@ -43,14 +61,23 @@ const Bill = () => {
     const appTax = subtotal * 0.01;
     const total = subtotal + waiterTip + appTax;
 
-    const handleCreatePool = () => {
+    const handleCreatePool = async () => {
         const payAmount = parseFloat(myPayment) || 0;
         if (payAmount >= total) {
             alert("Para pagar o valor total, use o botão 'Pagar Integral'");
             return;
         }
-        const newPool = createPool(total, payAmount);
-        setPool(newPool);
+        const session = getTableSession();
+        if (!session) {
+            alert('Não há mesa vinculada.');
+            return;
+        }
+        try {
+            const newPool = await createPool(total, payAmount, session.sessionId);
+            setPool(newPool);
+        } catch (e) {
+            alert(e.message || 'Erro ao criar Pool.');
+        }
     };
 
     const handleStripeCheckout = async (amountToPay) => {

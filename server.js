@@ -22,6 +22,75 @@ const pool = new Pool({
 
 app.use(cors());
 app.use(express.static('public'));
+
+// --- STRIPE WEBHOOK ---
+app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+    let event;
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (endpointSecret) {
+        const signature = req.headers['stripe-signature'];
+        try {
+            event = stripe.webhooks.constructEvent(req.body, signature, endpointSecret);
+        } catch (err) {
+            console.log(`⚠️  Webhook signature verification failed.`, err.message);
+            return res.sendStatus(400);
+        }
+    } else {
+        event = JSON.parse(req.body.toString());
+    }
+
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        if (session.metadata && session.metadata.poolId) {
+            const poolId = session.metadata.poolId;
+            const amountPaid = session.amount_total / 100;
+            const contributorName = session.metadata.contributorName;
+            const paymentIntentId = session.payment_intent;
+
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+
+                // Record the authorized contribution
+                await client.query(
+                    'INSERT INTO pagamentos_divisoes (id_pagamento, nome_contribuinte, valor, status, stripe_payment_intent_id) VALUES ($1, $2, $3, $4, $5)',
+                    [poolId, contributorName, amountPaid, 'AUTORIZADO', paymentIntentId]
+                );
+
+                // Check total authorized
+                const poolRes = await client.query('SELECT valor_total FROM pagamentos WHERE id_pagamento = $1', [poolId]);
+                const poolData = poolRes.rows[0];
+
+                const authRes = await client.query("SELECT SUM(valor) as total FROM pagamentos_divisoes WHERE id_pagamento = $1 AND status = 'AUTORIZADO'", [poolId]);
+                const totalAuth = parseFloat(authRes.rows[0].total || 0);
+
+                if (totalAuth >= parseFloat(poolData.valor_total)) {
+                    // Capture all intents
+                    const intentsToCapture = await client.query("SELECT id_divisao, stripe_payment_intent_id FROM pagamentos_divisoes WHERE id_pagamento = $1 AND status = 'AUTORIZADO'", [poolId]);
+                    for (const row of intentsToCapture.rows) {
+                        try {
+                            await stripe.paymentIntents.capture(row.stripe_payment_intent_id);
+                            await client.query("UPDATE pagamentos_divisoes SET status = 'CAPTURADO' WHERE id_divisao = $1", [row.id_divisao]);
+                        } catch (e) {
+                            console.error('Failed to capture:', row.stripe_payment_intent_id, e);
+                        }
+                    }
+                    await client.query("UPDATE pagamentos SET status = 'CAPTURADO' WHERE id_pagamento = $1", [poolId]);
+                }
+
+                await client.query('COMMIT');
+            } catch (err) {
+                await client.query('ROLLBACK');
+                console.error('Webhook error:', err);
+            } finally {
+                client.release();
+            }
+        }
+    }
+    res.json({ received: true });
+});
+
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -248,26 +317,73 @@ app.delete('/api/menu/:id', async (req, res) => {
     }
 });
 
-// --- ORDER CONTEXT ---
+// --- SESSION & TABLE CONTEXT ---
 
-// POST /api/orders - Add to order (simplified session management)
-app.post('/api/orders', async (req, res) => {
-    const { item, selectedAddons, observations } = req.body;
+// POST /api/session/join
+app.post('/api/session/join', async (req, res) => {
+    const { tableCode } = req.body;
+    // user ID 4 as placeholder for anonymous clients in this demo, or we could pass user ID if logged in.
+    const userId = req.body.userId || 4;
+
+    if (!tableCode) {
+        return res.status(400).json({ error: 'Código da mesa é obrigatório' });
+    }
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. Get or create active session for user 4 (João) - hardcoded for demo as per previous patterns
-        let sessionRes = await client.query('SELECT id_sessao FROM sessoes WHERE status = \'ABERTA\' AND id_usuario_criador = 4 LIMIT 1');
+        // Find table by code
+        const tableRes = await client.query('SELECT id_mesa FROM mesas WHERE identificador_mesa = $1 AND ativa = true', [tableCode]);
+        if (tableRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Mesa não encontrada ou inativa' });
+        }
+        const mesaId = tableRes.rows[0].id_mesa;
+
+        // Check if there's an active session for this table
+        let sessionRes = await client.query("SELECT id_sessao FROM sessoes WHERE id_mesa = $1 AND status = 'ABERTA' LIMIT 1", [mesaId]);
+
         let sessionId;
         if (sessionRes.rows.length === 0) {
+            // Create a new session
             const newSession = await client.query(
-                'INSERT INTO sessoes (id_restaurante, id_mesa, id_usuario_criador, status) VALUES ($1, $2, $3, $4) RETURNING id_sessao',
-                [1, 1, 4, 'ABERTA']
+                "INSERT INTO sessoes (id_restaurante, id_mesa, id_usuario_criador, status) VALUES ($1, $2, $3, 'ABERTA') RETURNING id_sessao",
+                [1, mesaId, userId] // Assuming restaurant 1
             );
             sessionId = newSession.rows[0].id_sessao;
         } else {
             sessionId = sessionRes.rows[0].id_sessao;
+        }
+
+        await client.query('COMMIT');
+        res.json({ sessionId, tableId: mesaId, tableCode });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('Error joining session:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
+    }
+});
+
+// --- ORDER CONTEXT ---
+
+// POST /api/orders - Add to order
+app.post('/api/orders', async (req, res) => {
+    const { item, selectedAddons, observations, sessionId } = req.body;
+
+    if (!sessionId) {
+        return res.status(400).json({ error: 'Sessão da mesa é obrigatória para fazer pedidos' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Check if session is valid and OPEN
+        const sessionCheck = await client.query("SELECT status FROM sessoes WHERE id_sessao = $1", [sessionId]);
+        if (sessionCheck.rows.length === 0 || sessionCheck.rows[0].status !== 'ABERTA') {
+            throw new Error("Sessão inválida ou fechada");
         }
 
         // 2. Create Order
@@ -312,8 +428,8 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
-// GET /api/orders - Fetch all orders with details
-app.get('/api/orders', async (req, res) => {
+// GET /api/orders/:sessionId - Fetch all orders with details for a specific session
+app.get('/api/orders/:sessionId', async (req, res) => {
     try {
         const query = `
             SELECT 
@@ -331,10 +447,11 @@ app.get('/api/orders', async (req, res) => {
             JOIN pedidos_itens pi ON p.id_pedido = pi.id_pedido
             JOIN cardapio_itens ci ON pi.id_item = ci.id_item
             LEFT JOIN pedidos_itens_adicionais pia ON pi.id_pedido_item = pia.id_pedido_item
+            WHERE p.id_sessao = $1
             GROUP BY p.id_pedido, pi.id_pedido_item, ci.id_item
             ORDER BY p.criado_em DESC
         `;
-        const result = await pool.query(query);
+        const result = await pool.query(query, [req.params.sessionId]);
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -410,6 +527,162 @@ app.post('/create-checkout-session', async (req, res) => {
     } catch (error) {
         console.error('Error creating checkout session:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// --- STRIPE POOL (Divisão) ---
+
+// GET /api/pool/:id
+app.get('/api/pool/:id', async (req, res) => {
+    try {
+        const poolId = req.params.id;
+        const poolRes = await pool.query('SELECT * FROM pagamentos WHERE id_pagamento = $1', [poolId]);
+        if (poolRes.rows.length === 0) return res.status(404).json({ error: 'Pool not found' });
+
+        const contributionsRes = await pool.query('SELECT nome_contribuinte, valor, status, criado_em FROM pagamentos_divisoes WHERE id_pagamento = $1 ORDER BY criado_em DESC', [poolId]);
+        const poolData = poolRes.rows[0];
+        const contributions = contributionsRes.rows.map(c => ({
+            contributorName: c.nome_contribuinte,
+            amount: parseFloat(c.valor),
+            status: c.status,
+            timestamp: c.criado_em
+        }));
+
+        const initialPaid = contributions.reduce((acc, c) => acc + c.amount, 0);
+        res.json({
+            id: poolData.id_pagamento,
+            totalAmount: parseFloat(poolData.valor_total),
+            initialPaid,
+            remainingAmount: Math.max(0, parseFloat(poolData.valor_total) - initialPaid),
+            contributions,
+            isPaid: poolData.status === 'CAPTURADO'
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// GET /api/pool/session/:sessionId -> Busca pool pendente para uma sessão (mesa)
+app.get('/api/pool/session/:sessionId', async (req, res) => {
+    try {
+        const sessionId = req.params.sessionId;
+        const poolRes = await pool.query("SELECT * FROM pagamentos WHERE id_sessao = $1 AND status IN ('PENDENTE', 'CAPTURADO') ORDER BY criado_em DESC LIMIT 1", [sessionId]);
+        if (poolRes.rows.length === 0) return res.status(200).json({ pool: null });
+
+        const poolData = poolRes.rows[0];
+        const poolId = poolData.id_pagamento;
+
+        const contributionsRes = await pool.query('SELECT nome_contribuinte, valor, status, criado_em FROM pagamentos_divisoes WHERE id_pagamento = $1 ORDER BY criado_em DESC', [poolId]);
+        const contributions = contributionsRes.rows.map(c => ({
+            contributorName: c.nome_contribuinte,
+            amount: parseFloat(c.valor),
+            status: c.status,
+            timestamp: c.criado_em
+        }));
+
+        const initialPaid = contributions.reduce((acc, c) => acc + c.amount, 0);
+        res.json({
+            pool: {
+                id: poolId,
+                totalAmount: parseFloat(poolData.valor_total),
+                initialPaid,
+                remainingAmount: Math.max(0, parseFloat(poolData.valor_total) - initialPaid),
+                contributions,
+                isPaid: poolData.status === 'CAPTURADO'
+            }
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/pool/create
+app.post('/api/pool/create', async (req, res) => {
+    const { totalAmount, baseAmount, sessionId } = req.body;
+
+    if (!sessionId) {
+        return res.status(400).json({ error: 'Sessão da mesa é obrigatória' });
+    }
+
+    try {
+        // Find existing session
+        const sessionRes = await pool.query("SELECT id_sessao FROM sessoes WHERE id_sessao = $1 AND status = 'ABERTA'", [sessionId]);
+        if (sessionRes.rows.length === 0) return res.status(400).json({ error: 'Sessão inválida ou fechada' });
+
+        const newPoolRes = await pool.query(
+            "INSERT INTO pagamentos (id_sessao, valor_total, status, metodo) VALUES ($1, $2, 'PENDENTE', 'STRIPE') RETURNING id_pagamento",
+            [sessionId, totalAmount]
+        );
+        res.json({ pool: { id: newPoolRes.rows[0].id_pagamento, totalAmount, remainingAmount: totalAmount } });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/pool/checkout
+app.post('/api/pool/checkout', async (req, res) => {
+    try {
+        const { poolId, amount, contributorName, itemName } = req.body;
+
+        const session = await stripe.checkout.sessions.create({
+            line_items: [{
+                price_data: {
+                    currency: 'brl',
+                    product_data: { name: itemName },
+                    unit_amount: Math.round(amount * 100),
+                },
+                quantity: 1,
+            }],
+            mode: 'payment',
+            // IMPORTANT: Holds the funds instead of automatic capture
+            payment_intent_data: { capture_method: 'manual' },
+            metadata: { poolId: poolId.toString(), contributorName },
+            success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}`,
+            cancel_url: `${YOUR_DOMAIN}/pool/${poolId}?canceled=true`,
+        });
+
+        res.json({ url: session.url });
+    } catch (e) {
+        console.error('Error pool checkout:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// POST /api/pool/confirm - Chamado pelo Success.jsx frontend apos pagamento
+app.post('/api/pool/confirm', async (req, res) => {
+    const { poolId, amount, contributorName } = req.body;
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // Evita duplicacoes checando se ja existe aquele pagamento praquele nome com mesmo valor nas ultimas horas
+        // Num cenário real seria o Webhook do Stripe checando o ID do Intent
+        await client.query(
+            "INSERT INTO pagamentos_divisoes (id_pagamento, nome_contribuinte, valor, status) VALUES ($1, $2, $3, 'PAGO')",
+            [poolId, contributorName, amount]
+        );
+
+        // Checar se completou e precisa alterar a Pool para CAPTURADO
+        const poolRes = await client.query('SELECT valor_total FROM pagamentos WHERE id_pagamento = $1', [poolId]);
+        const sumRes = await client.query('SELECT SUM(valor) as total_pago FROM pagamentos_divisoes WHERE id_pagamento = $1', [poolId]);
+
+        if (poolRes.rows.length > 0 && sumRes.rows.length > 0) {
+            const totalAguardado = parseFloat(poolRes.rows[0].valor_total);
+            const totalPago = parseFloat(sumRes.rows[0].total_pago);
+            if (totalPago >= totalAguardado) {
+                await client.query("UPDATE pagamentos SET status = 'CAPTURADO' WHERE id_pagamento = $1", [poolId]);
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('Error confirming pool payment:', e);
+        res.status(500).json({ error: e.message });
+    } finally {
+        client.release();
     }
 });
 

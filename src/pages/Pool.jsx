@@ -27,11 +27,20 @@ const Pool = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const data = getPool(poolId);
-        if (data) {
-            setPool(data);
-        }
-        setLoading(false);
+        const fetchPool = async () => {
+            const data = await getPool(poolId);
+            if (data) {
+                setPool(data);
+            }
+            setLoading(false);
+        };
+        fetchPool();
+
+        const intervalId = setInterval(() => {
+            fetchPool();
+        }, 15000);
+
+        return () => clearInterval(intervalId);
     }, [poolId]);
 
     const handleContribute = async () => {
@@ -47,19 +56,12 @@ const Pool = () => {
 
         try {
             // Reusing the backend logic but customized for a pool payment
-            const data = await ky.post('http://localhost:3001/create-checkout-session', {
+            const data = await ky.post('http://localhost:4242/api/pool/checkout', {
                 json: {
-                    items: [
-                        { name: `Contribuição Mesa - ${name}`, price: payAmount, quantity: 1 }
-                    ],
-                    tip: 0,
-                    appTax: 0,
-                    metadata: { // Send metadata if backend supports, otherwise just pass in success URL params
-                        poolId: poolId,
-                        contributorName: name,
-                        contributedAmount: payAmount
-                    },
-                    customSuccessUrl: `http://localhost:3000/success?pool_id=${poolId}&amount=${payAmount}&name=${encodeURIComponent(name)}`
+                    poolId: poolId,
+                    amount: payAmount,
+                    contributorName: name,
+                    itemName: `Contribuição Mesa - ${name}`
                 }
             }).json();
 
