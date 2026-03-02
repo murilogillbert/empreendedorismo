@@ -30,10 +30,14 @@ import { getOrders, createPool, getPoolBySession, getAllPools, removePoolItem, s
 import { getTableSession, clearTableSession } from '../utils/tableStore';
 import { getCurrentUser } from '../utils/userStore';
 import { QRCodeSVG } from 'qrcode.react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const Bill = () => {
     const navigate = useNavigate();
+
+    const { restaurantSlug, tableId } = useParams();
+    const basePath = `/${restaurantSlug || 'demo'}${tableId ? `/${tableId}` : ''}`;
+
     const [orders, setOrders] = useState([]);
     const [waiterTipPercent, setWaiterTipPercent] = useState(10);
     const [myPayment, setMyPayment] = useState('');
@@ -217,7 +221,7 @@ const Bill = () => {
         }
     };
 
-    const poolUrl = pool ? `${window.location.origin}/pool/${pool.id}` : '';
+    const poolUrl = pool ? `${window.location.origin}${basePath}/pool/${pool.id}` : '';
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(poolUrl);
@@ -227,7 +231,7 @@ const Bill = () => {
 
     const handleLeaveTable = () => {
         clearTableSession();
-        window.location.href = '/menu';
+        navigate(`/${restaurantSlug || 'demo'}/menu`);
     };
 
     const isFullyPaid = pool?.isPaid || false;
@@ -625,7 +629,7 @@ const Bill = () => {
                                     {p.status === 'PENDENTE' && (
                                         <Button
                                             variant="contained" fullWidth size="small"
-                                            onClick={() => navigate(`/pool/${p.id}`)}
+                                            onClick={() => navigate(`${basePath}/pool/${p.id}`)}
                                             sx={{ mt: 2.5, borderRadius: '12px', bgcolor: 'var(--primary)', fontWeight: 900 }}
                                         >
                                             Pagar minha parte →
