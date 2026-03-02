@@ -913,7 +913,7 @@ app.post('/api/admin/stripe/onboard', authenticateToken, requireRole('ADMIN'), a
 
 app.post('/create-checkout-session', async (req, res) => {
     try {
-        const { items, tip, appTax, sessionId, userId, total } = req.body;
+        const { items, tip, appTax, sessionId, userId, total, restaurantSlug, tableId } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ error: 'Nenhum item no pedido' });
@@ -957,6 +957,8 @@ app.post('/create-checkout-session', async (req, res) => {
         let successUrl = `${YOUR_DOMAIN}/success?type=direct&amount=${totalAmount.toFixed(2)}`;
         if (sessionId) successUrl += `&session_id=${sessionId}`;
         if (userId) successUrl += `&user_id=${userId}`;
+        if (restaurantSlug) successUrl += `&slug=${restaurantSlug}`;
+        if (tableId) successUrl += `&table=${tableId}`;
 
         // Feature: Stripe Connect Split
         let paymentIntentData = {};
@@ -1361,7 +1363,7 @@ app.delete('/api/pool/:poolId/item/:orderItemId', async (req, res) => {
 // POST /api/pool/checkout
 app.post('/api/pool/checkout', async (req, res) => {
     try {
-        const { poolId, amount, contributorName, itemName, userId, type } = req.body;
+        const { poolId, amount, contributorName, itemName, userId, type, restaurantSlug, tableId } = req.body;
 
         const sessionPayload = {
             line_items: [{
@@ -1382,7 +1384,7 @@ app.post('/api/pool/checkout', async (req, res) => {
                     userId: userId ? userId.toString() : ''
                 }
             },
-            success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}${userId ? `&user_id=${userId}` : ''}${type ? `&type=${type}` : ''}`,
+            success_url: `${YOUR_DOMAIN}/success?pool_id=${poolId}&amount=${amount}&name=${encodeURIComponent(contributorName)}${userId ? `&user_id=${userId}` : ''}${type ? `&type=${type}` : ''}${restaurantSlug ? `&slug=${restaurantSlug}` : ''}${tableId ? `&table=${tableId}` : ''}`,
             cancel_url: `${YOUR_DOMAIN}/pool/${poolId}?canceled=true`,
         };
 

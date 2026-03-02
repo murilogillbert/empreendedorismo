@@ -128,7 +128,7 @@ export const removePoolItem = async (poolId, orderItemId) => {
 /**
  * Inicia o checkout Stripe para contribuição na pool
  */
-export const startPoolCheckout = async ({ poolId, amount, contributorName, itemName, userId, type }) => {
+export const startPoolCheckout = async ({ poolId, amount, contributorName, itemName, userId, type, restaurantSlug, tableId }) => {
     try {
         const response = await api.post('pool/checkout', {
             json: {
@@ -137,7 +137,9 @@ export const startPoolCheckout = async ({ poolId, amount, contributorName, itemN
                 contributorName,
                 itemName: itemName || `Contribuição Mesa - ${contributorName}`,
                 userId,
-                type
+                type,
+                restaurantSlug,
+                tableId
             }
         }).json();
         return response;
