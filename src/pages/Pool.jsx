@@ -19,7 +19,7 @@ import { getPool, startPoolCheckout } from '../utils/orderStore';
 import { getCurrentUser } from '../utils/userStore';
 
 const Pool = () => {
-    const { poolId } = useParams();
+    const { poolId, restaurantSlug, tableId } = useParams();
     const navigate = useNavigate();
     const [pool, setPool] = useState(null);
     const [contributionAmount, setContributionAmount] = useState(''); // Renamed from 'amount'
@@ -73,7 +73,9 @@ const Pool = () => {
                 amount: finalAmount,
                 contributorName: contributorName || 'Anônimo',
                 itemName: `Contribuição Mesa - Pool #${poolId}`,
-                userId: user?.id
+                userId: user?.id,
+                restaurantSlug,
+                tableId
             });
             window.location.href = url;
         } catch (err) {

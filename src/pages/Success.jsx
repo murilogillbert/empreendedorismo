@@ -9,7 +9,12 @@ const Success = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
-    const { restaurantSlug, tableId } = useParams();
+    const { restaurantSlug: urlSlug, tableId: urlTableId } = useParams();
+
+    // Prioritize values from query params (passed back from Stripe)
+    const restaurantSlug = searchParams.get('slug') || urlSlug;
+    const tableId = searchParams.get('table') || urlTableId;
+
     const basePath = `/${restaurantSlug || 'demo'}${tableId ? `/${tableId}` : ''}`;
 
     const [countdown, setCountdown] = useState(10);

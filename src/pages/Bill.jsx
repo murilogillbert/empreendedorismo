@@ -211,7 +211,9 @@ const Bill = () => {
                 contributorName: user?.nome_completo || 'Cliente Integral',
                 itemName: `Pagamento Integral Mesa ${session.tableIdentifier}`,
                 userId: user?.id,
-                type: 'direct' // Indica para o Success.jsx o redirecionamento
+                type: 'direct', // Indica para o Success.jsx o redirecionamento
+                restaurantSlug,
+                tableId
             });
 
             window.location.href = url;
